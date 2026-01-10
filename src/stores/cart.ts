@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { Event, TicketType } from './events'
 
 export interface CartItem {
-  id: number
+  id: string
   event: Event
   ticketType: TicketType
   quantity: number
@@ -44,14 +44,14 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
-  function removeItem(ticketTypeId: number) {
+  function removeItem(ticketTypeId: string) {
     const index = items.value.findIndex((item) => item.ticketType.id === ticketTypeId)
     if (index > -1) {
       items.value.splice(index, 1)
     }
   }
 
-  function updateQuantity(ticketTypeId: number, quantity: number) {
+  function updateQuantity(ticketTypeId: string, quantity: number) {
     const item = items.value.find((item) => item.ticketType.id === ticketTypeId)
     if (item) {
       if (quantity <= 0) {

@@ -21,7 +21,8 @@ const filteredEvents = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return events.filter(
     (event) =>
-      event.name.toLowerCase().includes(query) || event.location.toLowerCase().includes(query),
+      event.name.toLowerCase().includes(query) ||
+      (event.location?.toLowerCase().includes(query) ?? false),
   )
 })
 
@@ -39,9 +40,7 @@ onMounted(() => {
       <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
       <div class="container relative">
         <div class="max-w-3xl mx-auto text-center">
-          <div
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6"
-          >
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
             <FontAwesomeIcon :icon="faStar" class="h-4 w-4" />
             <span class="text-sm font-medium">Discover Amazing Events</span>
           </div>
@@ -69,10 +68,7 @@ onMounted(() => {
           </span>
         </div>
 
-        <div
-          v-if="eventsStore.loading"
-          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
+        <div v-if="eventsStore.loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div v-for="i in 6" :key="i" class="space-y-4 animate-pulse">
             <div class="aspect-video rounded-lg bg-muted" />
             <div class="h-6 w-3/4 rounded bg-muted" />
@@ -81,10 +77,7 @@ onMounted(() => {
         </div>
 
         <div v-else-if="filteredEvents.length === 0" class="text-center py-16">
-          <FontAwesomeIcon
-            :icon="faCalendar"
-            class="h-16 w-16 text-muted-foreground mx-auto mb-4"
-          />
+          <FontAwesomeIcon :icon="faCalendar" class="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 class="font-display text-xl font-semibold text-foreground mb-2">
             {{ searchQuery ? 'No events found' : 'No events available' }}
           </h3>
@@ -98,11 +91,8 @@ onMounted(() => {
         </div>
 
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <EventCard
-            v-for="event in filteredEvents"
-            :key="String(event.id)"
-            :event="{ ...event, id: String(event.id) }"
-          />
+          <EventCard v-for="event in filteredEvents" :key="String(event.id)" :event="{ ...event, id: String(event.id) }"
+            :ticket-types="eventsStore.ticketTypes[event.id] || []" />
         </div>
       </div>
     </section>

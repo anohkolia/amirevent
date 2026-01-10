@@ -18,7 +18,7 @@ const quantity = ref(1)
 const isMember = ref(false)
 
 const ticketTypes = computed(() => {
-  return eventsStore.ticketTypes
+  return eventsStore.ticketTypes[props.event.id] || []
 })
 
 const totalPrice = computed(() => {
@@ -28,7 +28,7 @@ const totalPrice = computed(() => {
 })
 
 const getAvailableTickets = (ticket: TicketType) => {
-  return ticket.available - ticket.sold
+  return ticket.capacity - ticket.sold
 }
 
 const isSoldOut = (ticket: TicketType) => {
@@ -98,31 +98,19 @@ eventsStore.fetchTicketTypes(props.event.id)
     </div>
 
     <div v-else class="space-y-3">
-      <div
-        v-for="ticket in ticketTypes"
-        :key="ticket.id"
-        class="cursor-pointer transition-all border rounded-lg p-4"
+      <div v-for="ticket in ticketTypes" :key="ticket.id" class="cursor-pointer transition-all border rounded-lg p-4"
         :class="{
           'border-primary bg-primary/5': isSelected(ticket),
           'border-border hover:border-primary/50': !isSelected(ticket) && !isSoldOut(ticket),
           'border-border/50 opacity-50 cursor-not-allowed': isSoldOut(ticket),
-        }"
-        @click="selectTicket(ticket)"
-      >
+        }" @click="selectTicket(ticket)">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div
-              class="h-5 w-5 rounded-full border-2 flex items-center justify-center"
-              :class="{
-                'border-primary bg-primary': isSelected(ticket),
-                'border-muted-foreground': !isSelected(ticket),
-              }"
-            >
-              <FontAwesomeIcon
-                v-if="isSelected(ticket)"
-                :icon="faCheck"
-                class="h-3 w-3 text-primary-foreground"
-              />
+            <div class="h-5 w-5 rounded-full border-2 flex items-center justify-center" :class="{
+              'border-primary bg-primary': isSelected(ticket),
+              'border-muted-foreground': !isSelected(ticket),
+            }">
+              <FontAwesomeIcon v-if="isSelected(ticket)" :icon="faCheck" class="h-3 w-3 text-primary-foreground" />
             </div>
             <div>
               <p class="font-semibold text-foreground">{{ ticket.name }}</p>
@@ -146,33 +134,25 @@ eventsStore.fetchTicketTypes(props.event.id)
       <div class="flex items-center justify-between">
         <span class="text-muted-foreground">Quantity</span>
         <div class="flex items-center gap-3">
-          <button
-            variant="outline"
+          <button variant="outline"
             class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent"
-            @click="decreaseQuantity"
-          >
+            @click="decreaseQuantity">
             <FontAwesomeIcon :icon="faMinus" class="h-4 w-4" />
           </button>
           <span class="font-semibold text-foreground w-8 text-center">
             {{ quantity }}
           </span>
-          <button
-            variant="outline"
+          <button variant="outline"
             class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent"
-            @click="increaseQuantity"
-          >
+            @click="increaseQuantity">
             <FontAwesomeIcon :icon="faPlus" class="h-4 w-4" />
           </button>
         </div>
       </div>
 
       <div class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="member"
-          v-model="isMember"
-          class="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary"
-        />
+        <input type="checkbox" id="member" v-model="isMember"
+          class="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary" />
         <label for="member" class="text-muted-foreground cursor-pointer text-sm">
           I am a member of the association (20% discount)
         </label>
@@ -187,8 +167,7 @@ eventsStore.fetchTicketTypes(props.event.id)
 
       <button
         class="w-full py-3 px-4 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
-        @click="handleAddToCart"
-      >
+        @click="handleAddToCart">
         Add to Cart
       </button>
     </div>

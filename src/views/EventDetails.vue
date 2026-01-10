@@ -25,14 +25,15 @@ const formatDate = (dateString: string) => {
   })
 }
 
-const formatTime = (timeString: string) => {
+const formatTime = (timeString: string | null | undefined) => {
+  if (!timeString) return ''
   return timeString.slice(0, 5)
 }
 
 const isLoading = computed(() => loading.value || eventsStore.loading)
 
 onMounted(async () => {
-  const eventId = parseInt(route.params.id as string) || 0
+  const eventId = route.params.id as string
 
   if (!eventId) {
     router.push('/')
@@ -87,9 +88,7 @@ onMounted(async () => {
         The event you're looking for doesn't exist or has been removed.
       </p>
       <RouterLink to="/">
-        <button
-          class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium"
-        >
+        <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium">
           Back to Events
         </button>
       </RouterLink>
@@ -97,10 +96,8 @@ onMounted(async () => {
 
     <!-- Event Details -->
     <div v-else class="container py-8">
-      <RouterLink
-        to="/"
-        class="inline-flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <RouterLink to="/"
+        class="inline-flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors">
         <FontAwesomeIcon :icon="faArrowLeft" class="h-4 w-4" />
         <span>Back to Events</span>
       </RouterLink>
@@ -109,13 +106,11 @@ onMounted(async () => {
         <!-- Event Info -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Event Image -->
-          <div v-if="event.imageUrl" class="aspect-video rounded-lg overflow-hidden">
-            <img :src="event.imageUrl" :alt="event.name" class="w-full h-full object-cover" />
+          <div v-if="event.image_url" class="aspect-video rounded-lg overflow-hidden">
+            <img :src="event.image_url" :alt="event.name" class="w-full h-full object-cover" />
           </div>
-          <div
-            v-else
-            class="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-secondary flex items-center justify-center"
-          >
+          <div v-else
+            class="aspect-video rounded-lg bg-gradient-to-br from-primary/20 to-secondary flex items-center justify-center">
             <FontAwesomeIcon :icon="faCalendar" class="h-20 w-20 text-primary/50" />
           </div>
 
@@ -131,7 +126,7 @@ onMounted(async () => {
               </div>
               <div class="flex items-center gap-2 text-muted-foreground">
                 <FontAwesomeIcon :icon="faClock" class="h-5 w-5 text-primary" />
-                <span>{{ formatTime(event.date) }}</span>
+                <span>{{ formatTime(event.time) }}</span>
               </div>
               <div class="flex items-center gap-2 text-muted-foreground">
                 <FontAwesomeIcon :icon="faMapPin" class="h-5 w-5 text-primary" />

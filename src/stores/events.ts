@@ -1,173 +1,87 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { supabase } from '@/integrations/supabase/client'
 
 export interface Event {
-  id: number
+  id: string
   name: string
-  description: string
+  description?: string | null
   date: string
-  location: string
-  imageUrl: string
-  price: number
-  category?: string
+  time?: string | null
+  location?: string | null
+  image_url?: string | null
+  is_published?: boolean
 }
 
 export interface TicketType {
-  id: number
-  eventId: number
+  id: string
+  event_id: string
   name: string
-  description: string
   price: number
-  available: number
+  capacity: number
   sold: number
 }
 
 export const useEventsStore = defineStore('events', () => {
   const events = ref<Event[]>([])
-  const ticketTypes = ref<TicketType[]>([])
+  const ticketTypes = ref<Record<string, TicketType[]>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
-
-  // Mock data for demo purposes
-  const mockEvents: Event[] = [
-    {
-      id: 1,
-      name: 'Summer Music Festival',
-      description:
-        'The biggest music festival of the summer featuring top artists from around the world.',
-      date: '2025-07-15T18:00:00Z',
-      location: 'Central Park, New York',
-      imageUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=450&fit=crop',
-      price: 99,
-      category: 'Music',
-    },
-    {
-      id: 2,
-      name: 'Tech Conference 2025',
-      description:
-        'Join industry leaders for insights into the future of technology and innovation.',
-      date: '2025-08-20T09:00:00Z',
-      location: 'Convention Center, San Francisco',
-      imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=450&fit=crop',
-      price: 299,
-      category: 'Technology',
-    },
-    {
-      id: 3,
-      name: 'Comedy Night Live',
-      description: 'An evening of laughter with the best comedians in the business.',
-      date: '2025-06-10T20:00:00Z',
-      location: 'The Comedy Club, Los Angeles',
-      imageUrl: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=800&h=450&fit=crop',
-      price: 49,
-      category: 'Entertainment',
-    },
-    {
-      id: 4,
-      name: 'Art Exhibition Opening',
-      description: 'Exclusive preview of contemporary art from emerging artists worldwide.',
-      date: '2025-07-01T17:00:00Z',
-      location: 'Modern Art Museum, Chicago',
-      imageUrl: 'https://images.unsplash.com/photo-1531243269054-5ebf6f34081e?w=800&h=450&fit=crop',
-      price: 35,
-      category: 'Art',
-    },
-    {
-      id: 5,
-      name: 'Food & Wine Festival',
-      description: 'Sample culinary delights and fine wines from renowned chefs and wineries.',
-      date: '2025-09-05T11:00:00Z',
-      location: 'Riverside Festival Grounds, Napa Valley',
-      imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=450&fit=crop',
-      price: 150,
-      category: 'Food & Drink',
-    },
-    {
-      id: 6,
-      name: 'Marathon 2025',
-      description: 'Annual city marathon open to runners of all skill levels.',
-      date: '2025-10-12T07:00:00Z',
-      location: 'Downtown, Boston',
-      imageUrl: 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=450&fit=crop',
-      price: 75,
-      category: 'Sports',
-    },
-  ]
-
-  const mockTicketTypes: Record<number, TicketType[]> = {
-    1: [
-      {
-        id: 1,
-        eventId: 1,
-        name: 'General Admission',
-        description: 'Access to all general areas',
-        price: 99,
-        available: 1000,
-        sold: 450,
-      },
-      {
-        id: 2,
-        eventId: 1,
-        name: 'VIP Pass',
-        description: 'VIP area access, meet & greet',
-        price: 299,
-        available: 100,
-        sold: 45,
-      },
-    ],
-    2: [
-      {
-        id: 3,
-        eventId: 2,
-        name: 'Standard',
-        description: 'Conference access',
-        price: 299,
-        available: 500,
-        sold: 200,
-      },
-      {
-        id: 4,
-        eventId: 2,
-        name: 'Premium',
-        description: 'Conference + workshops',
-        price: 499,
-        available: 100,
-        sold: 30,
-      },
-    ],
-  }
 
   async function fetchEvents() {
     loading.value = true
     error.value = null
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      events.value = mockEvents
+      // Fetch all published events
+      const { data: eventsData, error: eventsErr } = await supabase
+        .from('events')
+        .select('*')
+        .eq('is_published', true)
+        .order('date', { ascending: true })
+
+      if (eventsErr) throw eventsErr
+
+      events.value = (eventsData as Event[]) || []
+
+      // Fetch ticket types for all events
+      if (events.value.length > 0) {
+        const eventIds = events.value.map((e) => e.id)
+        const { data: ticketsData, error: ticketsErr } = await supabase
+          .from('ticket_types')
+          .select('*')
+          .in('event_id', eventIds)
+
+        if (ticketsErr) throw ticketsErr
+
+        // Group ticket types by event_id
+        const grouped: Record<string, TicketType[]> = {}
+        for (const ticket of (ticketsData as TicketType[]) || []) {
+          const eventId = ticket.event_id
+          if (!grouped[eventId]) {
+            grouped[eventId] = []
+          }
+          grouped[eventId].push(ticket)
+        }
+        ticketTypes.value = grouped
+      }
     } catch (e) {
       error.value = 'Failed to fetch events'
       console.error(e)
+      // Fallback to empty array on error
+      events.value = []
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchEventById(id: number): Promise<Event | null> {
+  async function fetchEventById(id: string): Promise<Event | null> {
     loading.value = true
     error.value = null
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      const event = events.value.find((e) => e.id === id)
-      if (!event) {
-        // Load from mock if not in store
-        const found = mockEvents.find((e) => e.id === id)
-        if (found) {
-          events.value.push(found)
-          return found
-        }
-        return null
-      }
-      return event
+      const { data, error: err } = await supabase.from('events').select('*').eq('id', id).single()
+
+      if (err) throw err
+      return data as Event
     } catch (e) {
       error.value = 'Failed to fetch event'
       console.error(e)
@@ -177,13 +91,19 @@ export const useEventsStore = defineStore('events', () => {
     }
   }
 
-  async function fetchTicketTypes(eventId: number): Promise<TicketType[]> {
+  async function fetchTicketTypes(eventId: string): Promise<TicketType[]> {
     loading.value = true
     error.value = null
     try {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      const types = mockTicketTypes[eventId] || []
-      ticketTypes.value = types
+      const { data, error: err } = await supabase
+        .from('ticket_types')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('price', { ascending: true })
+
+      if (err) throw err
+      const types = (data as TicketType[]) || []
+      ticketTypes.value[eventId] = types
       return types
     } catch (e) {
       error.value = 'Failed to fetch ticket types'
