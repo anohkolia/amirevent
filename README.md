@@ -2,18 +2,35 @@
 
 This template should help get you started developing with Vue 3 in Vite.
 
-## Recommended IDE Setup
+## Project Overview
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+This is a Vue 3 + TypeScript + Vite application using the Composition API. The project uses Pinia for state management and Vue Router for routing.
 
-## Recommended Browser Setup
+**Tech Stack:**
+- Vue 3.5+ with `<script setup>` syntax
+- TypeScript with strict type checking via vue-tsc
+- Vite 7+ for build tooling
+- Pinia for state management
+- Vue Router 4+ for routing
+- Vitest for unit testing with jsdom environment
+- ESLint + Prettier for code quality
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Architecture
+
+### Directory Structure
+```
+src/
+├── assets/          # Static assets (CSS, images, etc.)
+├── components/      # Reusable Vue components
+│   ├── __tests__/  # Component unit tests
+│   └── icons/      # Icon components
+├── router/          # Vue Router configuration
+├── stores/          # Pinia stores for state management
+├── views/           # Page-level components (route views)
+│   └── admin/      # Admin-specific views
+├── App.vue          # Root component
+└── main.ts          # Application entry point
+```
 
 ## Type Support for `.vue` Imports in TS
 
