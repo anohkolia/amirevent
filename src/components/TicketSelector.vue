@@ -85,9 +85,6 @@ const handleAddToCart = () => {
   selectedTicket.value = null
   isMember.value = false
 }
-
-// Chargement des types de billets pour l'événement
-eventsStore.fetchTicketTypes(props.event.id)
 </script>
 
 <template>
