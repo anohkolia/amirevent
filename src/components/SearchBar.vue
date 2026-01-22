@@ -14,7 +14,7 @@ const update = (v: string) => emit('update:modelValue', v)
       type="text"
       :value="modelValue"
       @input="update(($event.target as HTMLInputElement).value)"
-      :placeholder="placeholder || 'Search events...'"
+      :placeholder="placeholder || 'Rechercher des événements...'"
       class="pl-10 h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground focus:ring-primary w-full rounded"
     />
   </div>

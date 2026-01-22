@@ -28,50 +28,87 @@ export const useEventsStore = defineStore('events', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchEvents() {
+  // Pagination / infinite loading state
+  const page = ref(0)
+  const pageSize = ref(9)
+  const hasMore = ref(true)
+
+  async function fetchEvents(opts?: { page?: number; pageSize?: number; append?: boolean }) {
     loading.value = true
     error.value = null
+
+    const requestedPage = opts?.page ?? 1
+    const requestedPageSize = opts?.pageSize ?? pageSize.value
+    const append = opts?.append ?? false
+
     try {
-      // Fetch all published events
-      const { data: eventsData, error: eventsErr } = await supabase
+      const start = (requestedPage - 1) * requestedPageSize
+      const end = requestedPage * requestedPageSize - 1
+
+      // Request with exact count to determine hasMore if supported
+      const { data: eventsData, error: eventsErr, count } = await supabase
         .from('events')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('is_published', true)
         .order('date', { ascending: true })
+        .range(start, end)
 
       if (eventsErr) throw eventsErr
 
-      events.value = (eventsData as Event[]) || []
+      const fetched = (eventsData as Event[]) || []
 
-      // Fetch ticket types for all events
+      if (append) {
+        events.value = [...events.value, ...fetched]
+      } else {
+        events.value = fetched
+      }
+
+      // Update pagination state
+      page.value = requestedPage
+      // If count is provided, use it; otherwise infer from fetched length
+      if (typeof count === 'number') {
+        hasMore.value = events.value.length < count
+      } else {
+        hasMore.value = fetched.length === requestedPageSize
+      }
+
+      // Fetch ticket types only for newly loaded events
       if (events.value.length > 0) {
-        const eventIds = events.value.map((e) => e.id)
-        const { data: ticketsData, error: ticketsErr } = await supabase
-          .from('ticket_types')
-          .select('*')
-          .in('event_id', eventIds)
+        const eventIds = (append ? fetched : events.value).map((e) => e.id)
+        if (eventIds.length > 0) {
+          const { data: ticketsData, error: ticketsErr } = await supabase
+            .from('ticket_types')
+            .select('*')
+            .in('event_id', eventIds)
 
-        if (ticketsErr) throw ticketsErr
+          if (ticketsErr) throw ticketsErr
 
-        // Group ticket types by event_id
-        const grouped: Record<string, TicketType[]> = {}
-        for (const ticket of (ticketsData as TicketType[]) || []) {
-          const eventId = ticket.event_id
-          if (!grouped[eventId]) {
-            grouped[eventId] = []
+          // Merge ticket types into existing map (preserve previously fetched)
+          const grouped: Record<string, TicketType[]> = { ...(ticketTypes.value || {}) }
+          for (const ticket of (ticketsData as TicketType[]) || []) {
+            const eventId = ticket.event_id
+            if (!grouped[eventId]) grouped[eventId] = []
+            grouped[eventId].push(ticket)
           }
-          grouped[eventId].push(ticket)
+          ticketTypes.value = grouped
         }
-        ticketTypes.value = grouped
       }
     } catch (e) {
       error.value = 'Failed to fetch events'
       console.error(e)
-      // Fallback to empty array on error
-      events.value = []
+      if (!append) events.value = []
+      hasMore.value = false
     } finally {
       loading.value = false
     }
+  }
+
+  function resetEvents() {
+    events.value = []
+    ticketTypes.value = {}
+    page.value = 0
+    hasMore.value = true
+    error.value = null
   }
 
   async function fetchEventById(id: string): Promise<Event | null> {
@@ -119,7 +156,11 @@ export const useEventsStore = defineStore('events', () => {
     ticketTypes,
     loading,
     error,
+    page,
+    pageSize,
+    hasMore,
     fetchEvents,
+    resetEvents,
     fetchEventById,
     fetchTicketTypes,
   }

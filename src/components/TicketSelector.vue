@@ -13,14 +13,17 @@ const props = defineProps<TicketSelectorProps>()
 const cartStore = useCartStore()
 const eventsStore = useEventsStore()
 
+// États locaux pour la sélection des billets
 const selectedTicket = ref<TicketType | null>(null)
 const quantity = ref(1)
 const isMember = ref(false)
 
+// Récupère les types de billets pour l'événement donné
 const ticketTypes = computed(() => {
   return eventsStore.ticketTypes[props.event.id] || []
 })
 
+// Calcul du prix total en fonction de la sélection
 const totalPrice = computed(() => {
   if (!selectedTicket.value) return 0
   const price = isMember.value ? selectedTicket.value.price * 0.8 : selectedTicket.value.price
@@ -39,12 +42,14 @@ const isSelected = (ticket: TicketType) => {
   return selectedTicket.value?.id === ticket.id
 }
 
+// Gère la sélection d'un type de billet
 const selectTicket = (ticket: TicketType) => {
   if (isSoldOut(ticket)) return
   selectedTicket.value = ticket
   quantity.value = 1
 }
 
+// Fonctions pour ajuster la quantité
 const decreaseQuantity = () => {
   if (quantity.value > 1) {
     quantity.value--
@@ -60,31 +65,34 @@ const increaseQuantity = () => {
   }
 }
 
+// Ajoute les billets sélectionnés au panier
 const handleAddToCart = () => {
   if (!selectedTicket.value) return
 
+  // Vérifie la disponibilité avant d'ajouter au panier
   const available = getAvailableTickets(selectedTicket.value)
   if (quantity.value > available) {
-    alert(`Only ${available} tickets available`)
+    alert(`Seulement ${available} billet(s) disponible(s) pour ce type.`)
     return
   }
 
+  // Ajoute l'article au panier via le store
   cartStore.addItem(props.event, selectedTicket.value, quantity.value, isMember.value)
-  alert(`${quantity.value} ticket(s) added to cart!`)
+  alert(`${quantity.value} billet(s) ajouté(s) au panier!`)
 
-  // Reset after adding
+  // Reinialise après ajout au panier
   quantity.value = 1
   selectedTicket.value = null
   isMember.value = false
 }
 
-// Fetch ticket types on mount
+// Chargement des types de billets pour l'événement
 eventsStore.fetchTicketTypes(props.event.id)
 </script>
 
 <template>
   <div class="space-y-4">
-    <h3 class="font-display text-lg font-semibold text-foreground">Select Tickets</h3>
+    <h3 class="font-display text-lg font-semibold text-foreground">Choisir les billets</h3>
 
     <div v-if="eventsStore.loading" class="space-y-3">
       <div v-for="i in 2" :key="i" class="p-4 border border-border rounded-lg animate-pulse">
@@ -94,7 +102,7 @@ eventsStore.fetchTicketTypes(props.event.id)
     </div>
 
     <div v-else-if="ticketTypes.length === 0" class="text-center py-8 text-muted-foreground">
-      No tickets available for this event.
+      Aucun billet disponible pour cet événement.
     </div>
 
     <div v-else class="space-y-3">
@@ -116,14 +124,14 @@ eventsStore.fetchTicketTypes(props.event.id)
               <p class="font-semibold text-foreground">{{ ticket.name }}</p>
               <div class="flex items-center gap-2 text-sm text-muted-foreground">
                 <FontAwesomeIcon :icon="faUsers" class="h-3 w-3" />
-                <span v-if="isSoldOut(ticket)">Sold out</span>
-                <span v-else>{{ getAvailableTickets(ticket) }} left</span>
+                <span v-if="isSoldOut(ticket)">Épuisé</span>
+                <span v-else>{{ getAvailableTickets(ticket) }} Retour</span>
               </div>
             </div>
           </div>
           <div class="text-right">
             <p class="font-display text-xl font-bold text-primary">
-              {{ ticket.price === 0 ? 'Free' : `€${ticket.price.toFixed(2)}` }}
+              {{ ticket.price === 0 ? 'Gratuit' : `€${ticket.price.toFixed(2)}` }}
             </p>
           </div>
         </div>
@@ -132,7 +140,7 @@ eventsStore.fetchTicketTypes(props.event.id)
 
     <div v-if="selectedTicket" class="space-y-4 pt-4 border-t border-border">
       <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Quantity</span>
+        <span class="text-muted-foreground">Quantité</span>
         <div class="flex items-center gap-3">
           <button variant="outline"
             class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent"
@@ -154,7 +162,7 @@ eventsStore.fetchTicketTypes(props.event.id)
         <input type="checkbox" id="member" v-model="isMember"
           class="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary" />
         <label for="member" class="text-muted-foreground cursor-pointer text-sm">
-          I am a member of the association (20% discount)
+          Je suis membre de l'asso
         </label>
       </div>
 
@@ -168,7 +176,7 @@ eventsStore.fetchTicketTypes(props.event.id)
       <button
         class="w-full py-3 px-4 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
         @click="handleAddToCart">
-        Add to Cart
+        Ajouter au panier
       </button>
     </div>
   </div>

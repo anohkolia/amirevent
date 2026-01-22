@@ -1,44 +1,41 @@
 # amirevent
 
-This template should help get you started developing with Vue 3 in Vite.
+Plateforme privée d'achat de billet événementiel pour association
 
-## Project Overview
+## Aperçu du projet
 
-This is a Vue 3 + TypeScript + Vite application using the Composition API. The project uses Pinia for state management and Vue Router for routing.
+Il s'agit d'une application Vue 3 + TypeScript + Vite utilisant l'API de composition. Le projet utilise Pinia pour la gestion d'état et Vue Router pour le routage.
 
 **Tech Stack:**
-- Vue 3.5+ with `<script setup>` syntax
-- TypeScript with strict type checking via vue-tsc
-- Vite 7+ for build tooling
-- Pinia for state management
-- Vue Router 4+ for routing
-- Vitest for unit testing with jsdom environment
-- ESLint + Prettier for code quality
+- Vue 3.5+ avec la syntax `<script setup>` 
+- TypeScript avec vérification stricte des types via vue-tsc
+- TailwindCss pour le style et mise en forme
+- Vite 7+ pour les outils de construction
+- Pinia pour la gestion d'état
+- Vue Router 4+ pour le routage
+- Vitest pour les tests unitaires avec l'environnement 
+- ESLint + Prettier pour la qualité du code
+- 
+- Supabase pour la gestion des données
+- DeepSeek & Copilote pour certaines implémentations complexes
 
 ## Architecture
 
-### Directory Structure
+### Structure du répertoire
 ```
 src/
 ├── assets/          # Static assets (CSS, images, etc.)
-├── components/      # Reusable Vue components
-│   ├── __tests__/  # Component unit tests
-│   └── icons/      # Icon components
-├── router/          # Vue Router configuration
-├── stores/          # Pinia stores for state management
-├── views/           # Page-level components (route views)
-│   └── admin/      # Admin-specific views
-├── App.vue          # Root component
-└── main.ts          # Application entry point
+├── components/      # Composants Vue réutilisable
+│   ├── __tests__/  # Tests unitaires de composants
+│   └── icons/      # Composants d'icone
+├── router/          # Configuration de Router Vue
+├── stores/          # Pinia stores pour la gestion d'état
+├── views/           # Composants pages
+│   └── admin/      # Vues(composants) spécifiques à l'admin
+├── App.vue          # Composant root
+└── main.ts          # Point d'entrée de l'application
 ```
 
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
 
 ## Project Setup
 

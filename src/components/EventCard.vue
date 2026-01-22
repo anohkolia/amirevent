@@ -22,18 +22,21 @@ interface EventType {
 
 const { event, ticketTypes } = defineProps<{ event: EventType; ticketTypes?: TicketType[] }>()
 
+// Calcul du prix le plus bas parmi les types de billets disponibles
 const lowestPrice = computed<number | null>(() => {
   const t = ticketTypes
   if (!t || t.length === 0) return null
   return Math.min(...t.map((x) => Number(x.price || 0)))
 })
 
+// Vérifie si au moins un type de billet a de la disponibilité
 const hasAvailability = computed(() => {
   const t = ticketTypes
   if (!t) return true
   return t.some((x) => Number(x.capacity || 0) - Number(x.sold || 0) > 0)
 })
 
+// Fonction pour formater la date
 const formattedDate = computed(() => {
   const d = event.date
   if (!d) return ''
@@ -66,14 +69,14 @@ const formattedDate = computed(() => {
           v-if="lowestPrice !== null"
           class="absolute top-3 right-3 bg-primary text-primary-foreground font-semibold px-3 py-1 rounded"
         >
-          {{ lowestPrice === 0 ? 'Free' : `From €${lowestPrice.toFixed(2)}` }}
+          {{ lowestPrice === 0 ? 'Free' : `à partir de €${lowestPrice.toFixed(2)}` }}
         </div>
 
         <div
           v-if="!hasAvailability && ticketTypes && ticketTypes.length > 0"
           class="absolute top-3 left-3 bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs"
         >
-          Sold Out
+          Épuisé
         </div>
       </div>
 

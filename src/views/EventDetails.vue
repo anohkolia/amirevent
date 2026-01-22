@@ -2,7 +2,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useEventsStore, type Event, type TicketType } from '@/stores/events'
-import HeaderView from '@/components/HeaderView.vue'
 import TicketSelector from '@/components/TicketSelector.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faCalendar, faMapPin, faClock, faArrowLeft } from '@fortawesome/free-solid-svg-icons'
@@ -17,10 +16,10 @@ const loading = ref(true)
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('fr-EU', {
     weekday: 'long',
-    month: 'long',
     day: 'numeric',
+    month: 'long',
     year: 'numeric',
   })
 }
@@ -45,8 +44,8 @@ onMounted(async () => {
   try {
     const fetchedEvent = await eventsStore.fetchEventById(eventId)
 
+    // Evenement non trouvé, rediriger vers la page d'accueil
     if (!fetchedEvent) {
-      // Event not found - redirect to home
       router.push('/')
       return
     }
@@ -54,7 +53,7 @@ onMounted(async () => {
     event.value = fetchedEvent
     ticketTypes.value = await eventsStore.fetchTicketTypes(eventId)
   } catch (error) {
-    console.error('Failed to load event:', error)
+    console.error('Échec du chargement de l\'événement:', error)
     router.push('/')
   } finally {
     loading.value = false
@@ -64,9 +63,8 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-background">
-    <HeaderView />
 
-    <!-- Loading State -->
+    <!-- Chargement  -->
     <div v-if="isLoading" class="container py-8">
       <div class="h-8 w-32 mb-6 bg-muted rounded animate-pulse"></div>
       <div class="grid lg:grid-cols-3 gap-8">
@@ -81,15 +79,15 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Event Not Found -->
+    <!-- Evenement non trouvé -->
     <div v-else-if="!event" class="container py-16 text-center">
-      <h1 class="font-display text-2xl font-semibold text-foreground mb-4">Event not found</h1>
+      <h1 class="font-display text-2xl font-semibold text-foreground mb-4">Evénement non trouvé</h1>
       <p class="text-muted-foreground mb-6">
-        The event you're looking for doesn't exist or has been removed.
+        L'événement que vous recherchez n'existe pas ou a été supprimé.
       </p>
       <RouterLink to="/">
         <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium">
-          Back to Events
+          Retour aux événements
         </button>
       </RouterLink>
     </div>
@@ -99,7 +97,7 @@ onMounted(async () => {
       <RouterLink to="/"
         class="inline-flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors">
         <FontAwesomeIcon :icon="faArrowLeft" class="h-4 w-4" />
-        <span>Back to Events</span>
+        <span>Retour aux événements</span>
       </RouterLink>
 
       <div class="grid lg:grid-cols-3 gap-8">
@@ -145,10 +143,10 @@ onMounted(async () => {
         <!-- Ticket Selection -->
         <div class="lg:sticky lg:top-24 h-fit">
           <div class="bg-card border border-border rounded-lg p-6">
-            <h3 class="font-display text-lg font-semibold text-foreground mb-4">Get Tickets</h3>
+            <h3 class="font-display text-lg font-semibold text-foreground mb-4">Obtenez des billets</h3>
             <TicketSelector v-if="ticketTypes.length > 0" :event="event" />
             <p v-else class="text-muted-foreground text-center py-8">
-              No tickets available for this event.
+              Aucun billet disponible pour cet événement.
             </p>
           </div>
         </div>

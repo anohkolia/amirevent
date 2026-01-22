@@ -35,5 +35,4 @@ watch(
   },
 )
 </script>
-
-<!-- Styles are intentionally omitted; styles rely on global Tailwind setup in the project. -->
+<style scoped></style>

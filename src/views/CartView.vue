@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
-import HeaderView from '@/components/HeaderView.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import {
   faTrash,
@@ -19,28 +18,33 @@ const items = computed(() => cartStore.items)
 const totalPrice = computed(() => cartStore.getTotalPrice())
 const isEmpty = computed(() => items.value.length === 0)
 
+// Fonction pour formater la date
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
+  return date.toLocaleDateString('fr-EU', {
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   })
 }
 
+// Fonction pour formater l'heure
 const formatTime = (timeString: string) => {
   return timeString.slice(0, 5)
 }
 
+// Calcul du prix d'un article (avec réduction membre si applicable)
 const getItemPrice = (item: (typeof items.value)[0]) => {
   const price = item.isMember ? item.ticketType.price * 0.8 : item.ticketType.price
   return price * item.quantity
 }
 
+// Suppression d'un article du panier
 const removeItem = (ticketTypeId: string) => {
   cartStore.removeItem(ticketTypeId)
 }
 
+// Mise à jour de la quantité d'un article dans le panier
 const updateQuantity = (ticketTypeId: string, quantity: number) => {
   cartStore.updateQuantity(ticketTypeId, quantity)
 }
@@ -56,16 +60,15 @@ const proceedToCheckout = () => {
 
 <template>
   <div class="min-h-screen bg-background">
-    <HeaderView />
 
     <!-- Empty Cart -->
     <div v-if="isEmpty" class="container py-16 text-center">
       <FontAwesomeIcon :icon="faShoppingCart" class="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-      <h1 class="font-display text-2xl font-semibold text-foreground mb-2">Your cart is empty</h1>
-      <p class="text-muted-foreground mb-6">Add some tickets to get started!</p>
+      <h1 class="font-display text-2xl font-semibold text-foreground mb-2">Votre panier est vide</h1>
+      <p class="text-muted-foreground mb-6">Ajoutez quelques billets pour commencer !</p>
       <RouterLink to="/">
         <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium">
-          Browse Events
+          Consultez les événements
         </button>
       </RouterLink>
     </div>
@@ -75,10 +78,10 @@ const proceedToCheckout = () => {
       <RouterLink to="/"
         class="inline-flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors">
         <FontAwesomeIcon :icon="faArrowLeft" class="h-4 w-4" />
-        <span>Continue Shopping</span>
+        <span>Continuer vos achats</span>
       </RouterLink>
 
-      <h1 class="font-display text-3xl font-bold text-foreground mb-8">Shopping Cart</h1>
+      <h1 class="font-display text-3xl font-bold text-foreground mb-8">Panier</h1>
 
       <div class="grid lg:grid-cols-3 gap-8">
         <!-- Cart Items -->
@@ -97,7 +100,7 @@ const proceedToCheckout = () => {
                 </p>
                 <span v-if="item.isMember"
                   class="inline-block mt-2 text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                  Member
+                  Membre
                 </span>
               </div>
 
@@ -137,7 +140,7 @@ const proceedToCheckout = () => {
         <!-- Order Summary -->
         <div>
           <div class="bg-card border border-border rounded-lg p-6 sticky top-24">
-            <h3 class="font-display text-lg font-semibold text-foreground mb-4">Order Summary</h3>
+            <h3 class="font-display text-lg font-semibold text-foreground mb-4">Résumé de la commande</h3>
 
             <div class="space-y-3 mb-6">
               <div v-for="item in items" :key="item.ticketType.id" class="flex justify-between text-sm">
@@ -160,12 +163,12 @@ const proceedToCheckout = () => {
             <button
               class="w-full py-3 px-4 mb-2 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
               @click="proceedToCheckout">
-              Proceed to Checkout
+              Passer à la caisse
             </button>
 
             <button variant="ghost" class="w-full py-2 text-muted-foreground hover:text-foreground transition-colors"
               @click="clearCart">
-              Clear Cart
+              Vider le panier
             </button>
           </div>
         </div>
