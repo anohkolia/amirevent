@@ -8,7 +8,30 @@ if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing environment variables')
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+// Create service role client for admin operations
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+// Create anon key client for JWT verification (if provided)
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
+
+// CORS headers configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+// Helper function to create JSON response with CORS headers
+function jsonResponse(data: unknown, status: number = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
+  })
+}
 
 // Input sanitization helpers
 function sanitizeString(str: string | undefined, maxLength: number = 100): string {
@@ -66,25 +89,61 @@ function generateQRData(orderId: string, orderNumber: string, customerEmail: str
   return btoa(JSON.stringify(payload))
 }
 
-// Main handler
-Deno.serve(async (req: Request) => {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    })
+// Verify JWT token and get user info
+async function verifyToken(authHeader: string | null): Promise<{ userId: string | null; isAuthenticated: boolean }> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { userId: null, isAuthenticated: false }
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim()
+  if (!token) {
+    return { userId: null, isAuthenticated: false }
   }
 
   try {
+    // Try to get user info using the anon client
+    if (supabaseAnon) {
+      const { data, error } = await supabaseAnon.auth.getUser(token)
+      if (data.user && !error) {
+        return { userId: data.user.id, isAuthenticated: true }
+      }
+    }
+  } catch {
+    console.log('Token verification failed, proceeding as anonymous')
+  }
+
+  // If token verification fails but token exists, still allow request (edge cases)
+  // The token format validation is minimal here
+  return { userId: null, isAuthenticated: false }
+}
+
+// Main handler
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    })
+  }
+
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed' }, 405)
+  }
+
+  try {
+    // Get and verify authorization header (optional for anonymous users)
+    const authHeader = req.headers.get('Authorization')
+    const { userId, isAuthenticated } = await verifyToken(authHeader)
+
+    console.log(`Order request - Authenticated: ${isAuthenticated}, UserId: ${userId ?? 'anonymous'}`)
+
     const body: OrderRequest = await req.json()
 
     // Validate required fields
     if (!body.customer_name || !body.customer_email || !body.items?.length) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Missing required fields' }, 400)
     }
 
     // Sanitize inputs
@@ -93,32 +152,23 @@ Deno.serve(async (req: Request) => {
     const sanitizedPhone = sanitizePhone(body.customer_phone)
 
     if (!sanitizedName || sanitizedName.length < 2) {
-      return new Response(JSON.stringify({ error: 'Invalid customer name' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Invalid customer name' }, 400)
     }
 
     // Fetch ticket types with current prices and capacity from database
     const ticketTypeIds = body.items.map((item) => item.ticket_type_id)
-    const { data: ticketTypes, error: ticketError } = await supabase
+    const { data: ticketTypes, error: ticketError } = await supabaseAdmin
       .from('ticket_types')
       .select('id, event_id, name, price, capacity, sold, events(name)')
       .in('id', ticketTypeIds)
 
     if (ticketError) {
       console.error('Error fetching ticket types:', ticketError)
-      return new Response(JSON.stringify({ error: 'Failed to validate ticket types' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Failed to validate ticket types' }, 500)
     }
 
     if (!ticketTypes || ticketTypes.length !== ticketTypeIds.length) {
-      return new Response(JSON.stringify({ error: 'One or more ticket types not found' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'One or more ticket types not found' }, 400)
     }
 
     // Create a map for quick lookup
@@ -133,26 +183,17 @@ Deno.serve(async (req: Request) => {
     for (const item of body.items) {
       const dbTicket = ticketTypeMap.get(item.ticket_type_id)
       if (!dbTicket) {
-        return new Response(
-          JSON.stringify({ error: `Ticket type ${item.ticket_type_id} not found` }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        )
+        return jsonResponse({ error: `Ticket type ${item.ticket_type_id} not found` }, 400)
       }
 
       // Check capacity
       const available = dbTicket.capacity - dbTicket.sold
       if (item.quantity > available) {
-        return new Response(
-          JSON.stringify({
-            error: `Not enough tickets available for ${dbTicket.name}. Only ${available} remaining.`,
-          }),
+        return jsonResponse(
           {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
+            error: `Not enough tickets available for ${dbTicket.name}. Only ${available} remaining.`,
           },
+          400,
         )
       }
 
@@ -188,20 +229,18 @@ Deno.serve(async (req: Request) => {
       payment_status: paymentStatus,
       order_number: orderNumber,
       is_member: item.is_member,
+      user_id: userId, // Link to user if authenticated, null if anonymous
     }))
 
     // Insert orders
-    const { data: orders, error: orderError } = await supabase
+    const { data: orders, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert(orderInsertData)
       .select('id, event_id, ticket_type_id')
 
     if (orderError) {
       console.error('Error creating orders:', orderError)
-      return new Response(JSON.stringify({ error: 'Failed to create orders' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonResponse({ error: 'Failed to create orders' }, 500)
     }
 
     // Update ticket sold counts and generate QR codes
@@ -213,7 +252,7 @@ Deno.serve(async (req: Request) => {
       const newSoldCount = validatedItem.sold + validatedItem.quantity
 
       // Update sold count
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('ticket_types')
         .update({ sold: newSoldCount })
         .eq('id', order.ticket_type_id)
@@ -232,32 +271,25 @@ Deno.serve(async (req: Request) => {
       })
 
       // Update order with QR code
-      await supabase.from('orders').update({ qr_code: qrData }).eq('id', order.id)
+      await supabaseAdmin.from('orders').update({ qr_code: qrData }).eq('id', order.id)
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        orderNumber,
-        totalPrice: Math.round(totalPrice * 100) / 100,
-        paymentStatus,
-        qrCodes,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
+    return jsonResponse({
+      success: true,
+      orderNumber,
+      totalPrice: Math.round(totalPrice * 100) / 100,
+      paymentStatus,
+      qrCodes,
+      isAuthenticated,
+    })
   } catch (err) {
     console.error('Error processing order:', err)
-    return new Response(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : 'Internal server error',
-      }),
+    return jsonResponse(
       {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        error: err instanceof Error ? err.message : 'Internal server error',
       },
+      500,
     )
   }
 })
+

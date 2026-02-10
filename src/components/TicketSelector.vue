@@ -122,7 +122,7 @@ const handleAddToCart = () => {
               <div class="flex items-center gap-2 text-sm text-muted-foreground">
                 <FontAwesomeIcon :icon="faUsers" class="h-3 w-3" />
                 <span v-if="isSoldOut(ticket)">Épuisé</span>
-                <span v-else>{{ getAvailableTickets(ticket) }} Retour</span>
+                <span v-else>{{ getAvailableTickets(ticket) }} Billet(s) disponible(s)</span>
               </div>
             </div>
           </div>

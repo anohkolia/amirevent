@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import HeaderView from '@/components/HeaderView.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faCheckCircle, faDownload, faEnvelope, faHome } from '@fortawesome/free-solid-svg-icons'
 
@@ -59,7 +58,6 @@ QR Code: ${qrCode.qrCode}
 
 <template>
   <div class="min-h-screen bg-background">
-    <HeaderView />
 
     <!-- No Order Found -->
     <div v-if="!showConfirmation" class="container py-16 text-center">
@@ -80,11 +78,11 @@ QR Code: ${qrCode.qrCode}
         </div>
 
         <h1 class="font-display text-3xl font-bold text-foreground mb-4">
-          {{ isFree ? 'Registration Confirmed!' : 'Payment Successful!' }}
+          {{ isFree ? 'Inscription confirmée!':'Paiement réussi!' }}
         </h1>
 
         <p class="text-muted-foreground mb-8">
-          {{ isFree ? 'Your free tickets have been reserved.' : 'Thank you for your purchase!' }}
+          {{ isFree ? 'Vos billets gratuits ont été réservés.' : 'Merci pour votre achat !' }}
           <br />
           Un courriel de confirmation contenant vos billets a été envoyé à:
         </p>

@@ -4,18 +4,18 @@
       <div class="container flex h-16 items-center justify-between">
         <router-link to="/admin" class="text-muted-foreground inline-flex items-center">
           <span class="mr-2">←</span>
-          <span>Back to Dashboard</span>
+          <span>Retour au Dashboard</span>
         </router-link>
         <router-link to="/admin/events/new">
           <button class="py-2 px-3 rounded bg-primary text-primary-foreground">
-            ＋ Create Event
+            ＋ Créer un événement
           </button>
         </router-link>
       </div>
     </header>
 
     <div class="container py-8">
-      <h1 class="font-display text-3xl font-bold text-foreground mb-8">Events</h1>
+      <h1 class="font-display text-3xl font-bold text-foreground mb-8">Événements</h1>
 
       <div v-if="isLoading" class="flex justify-center py-12">
         <div
@@ -25,11 +25,11 @@
 
       <div v-else>
         <div v-if="events.length === 0" class="text-center py-16">
-          <h3 class="font-display text-xl font-semibold text-foreground mb-2">No events yet</h3>
-          <p class="text-muted-foreground mb-6">Create your first event to get started</p>
+          <h3 class="font-display text-xl font-semibold text-foreground mb-2">Aucun événement pour le moment</h3>
+          <p class="text-muted-foreground mb-6">Créez votre premier événement pour commencer</p>
           <router-link to="/admin/events/new">
             <button class="py-2 px-3 rounded bg-primary text-primary-foreground">
-              ＋ Create Event
+              ＋ Créer un événement
             </button>
           </router-link>
         </div>
@@ -60,19 +60,19 @@
 
                 <div class="flex items-center gap-2">
                   <span :class="badgeClass(event.is_published)">{{
-                    event.is_published ? 'Published' : 'Draft'
+                    event.is_published ? 'Publié' : 'Caché'
                   }}</span>
 
                   <button class="py-1 px-2 rounded bg-transparent" @click="togglePublish(event)">
-                    {{ event.is_published ? 'Unpublish' : 'Publish' }}
+                    {{ event.is_published ? 'Cacher' : 'Publier' }}
                   </button>
 
                   <router-link :to="`/admin/events/${event.id}`">
-                    <button class="py-1 px-2 rounded bg-transparent">Edit</button>
+                    <button class="py-1 px-2 rounded bg-transparent">Modifier</button>
                   </router-link>
 
                   <button class="py-1 px-2 rounded text-destructive" @click="confirmDelete(event)">
-                    Delete
+                    Supprimer
                   </button>
                 </div>
               </div>
@@ -149,26 +149,26 @@ const fetchEvents = async () => {
 const togglePublish = async (event: EventItem) => {
   try {
     await supabase.from('events').update({ is_published: !event.is_published }).eq('id', event.id)
-    toast.success('Event updated')
+    toast.success('Événement mis à jour')
     await fetchEvents()
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    toast.error(msg || 'Failed to update event')
+    toast.error(msg || 'Échec de la mise à jour de l\'événement')
   }
 }
 
 const confirmDelete = async (event: EventItem) => {
   const ok = window.confirm(
-    `Are you sure you want to delete "${event.name}"? This action cannot be undone.`,
+    `Êtes-vous sûr de vouloir supprimer "${event.name}"? Cette action ne peut pas être annulée.`,
   )
   if (!ok) return
   try {
     await supabase.from('events').delete().eq('id', event.id)
-    toast.success('Event deleted')
+    toast.success('Événement supprimé')
     await fetchEvents()
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    toast.error(msg || 'Failed to delete event')
+    toast.error(msg || 'Échec de la suppression de l\'événement')
   }
 }
 
@@ -194,4 +194,3 @@ const badgeClass = (published?: boolean) => {
 }
 </script>
 
-<!-- Styles are handled globally via Tailwind -->

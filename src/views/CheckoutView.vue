@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
-import HeaderView from '@/components/HeaderView.vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faArrowLeft, faCreditCard, faSpinner } from '@fortawesome/free-solid-svg-icons'
 
@@ -106,13 +105,22 @@ const handleSubmit = async () => {
       ticket_type_name: item.ticketType.name,
     }))
 
+    // Get auth token if user is logged in
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+
+    // Prepare request headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`
+    }
+
     // Appel à la fonction edge Supabase pour la création sécurisée de la commande
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-order`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-      },
+      headers,
       body: JSON.stringify({
         customer_name: formData.value.customerName,
         customer_email: formData.value.customerEmail,
@@ -166,7 +174,6 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-background">
-    <HeaderView />
 
     <div class="container py-8 max-w-2xl">
       <button variant="ghost" class="mb-6 text-muted-foreground hover:text-foreground transition-colors"

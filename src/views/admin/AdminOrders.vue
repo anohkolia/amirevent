@@ -3,23 +3,23 @@
     <header class="border-b border-border bg-card">
       <div class="container flex h-16 items-center justify-between">
         <router-link to="/admin" class="text-muted-foreground inline-flex items-center">
-          <!-- simple back text instead of icon -->
+          <!-- texte simple à la place de l'icône -->
           <span class="mr-2">←</span>
-          <span>Back to Dashboard</span>
+          <span>Retour au Dashboard</span>
         </router-link>
       </div>
     </header>
 
     <div class="container py-8">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <h1 class="font-display text-3xl font-bold text-foreground">Orders</h1>
+        <h1 class="font-display text-3xl font-bold text-foreground">Commandes</h1>
         <div class="relative max-w-sm w-full">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
             >🔍</span
           >
           <input
             v-model="searchQuery"
-            placeholder="Search orders..."
+            placeholder="Rechercher des commandes..."
             class="pl-10 bg-input border-border text-foreground w-full rounded"
             aria-label="Search orders"
           />
@@ -34,12 +34,12 @@
 
       <div v-else>
         <div v-if="filteredOrders.length === 0" class="text-center py-16">
-          <h3 class="font-display text-xl font-semibold text-foreground mb-2">No orders found</h3>
+          <h3 class="font-display text-xl font-semibold text-foreground mb-2">Aucune commande trouvée</h3>
           <p class="text-muted-foreground">
             {{
               searchQuery
-                ? 'Try adjusting your search'
-                : 'Orders will appear here once customers make purchases'
+                ? 'Essayez d\'affiner vos critères de recherche'
+                : 'Les commandes apparaîtront ici une fois que les clients auront effectué leurs achats.'
             }}
           </p>
         </div>
@@ -49,12 +49,12 @@
             <table class="min-w-full text-left">
               <thead class="text-muted-foreground">
                 <tr class="border-border">
-                  <th class="px-4 py-2">Customer</th>
-                  <th class="px-4 py-2">Event</th>
-                  <th class="px-4 py-2">Ticket</th>
-                  <th class="px-4 py-2">Qty</th>
+                  <th class="px-4 py-2">Client</th>
+                  <th class="px-4 py-2">Événement</th>
+                  <th class="px-4 py-2">Billet</th>
+                  <th class="px-4 py-2">Qté</th>
                   <th class="px-4 py-2">Total</th>
-                  <th class="px-4 py-2">Status</th>
+                  <th class="px-4 py-2">Statut</th>
                   <th class="px-4 py-2">Date</th>
                 </tr>
               </thead>
@@ -68,7 +68,7 @@
                       <span
                         v-if="order.is_member"
                         class="inline-block mt-1 text-xs px-2 py-0.5 border rounded"
-                        >Member</span
+                        >Membre</span
                       >
                     </div>
                   </td>
@@ -211,4 +211,3 @@ const statusClass = (status: string | undefined) => {
 }
 </script>
 
-<!-- Styles are intentionally omitted — project global styles and Tailwind handle styling -->
