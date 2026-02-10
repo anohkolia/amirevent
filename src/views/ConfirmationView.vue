@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faCheckCircle, faDownload, faEnvelope, faHome } from '@fortawesome/free-solid-svg-icons'
+import { jsPDF } from 'jspdf'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
-const router = useRouter()
 // Variables réactives pour stocker les données de confirmation
 const orderIds = ref<string[]>([])
 const orderNumber = ref('')
 const customerEmail = ref('')
+const customerName = ref('')
+const purchaseDate = ref('')
 const isFree = ref(false)
 const showConfirmation = ref(false)
 const qrCodes = ref<Array<{ orderId: string; orderNumber: string; qrCode: string }>>([])
+const items = ref<Array<{
+  eventId: string
+  eventName: string
+  eventLocation: string
+  eventDate: string
+  eventTime: string
+  ticketTypeName: string
+  quantity: number
+  price: number
+}>>([])
 
 onMounted(() => {
   // Récupération des données de confirmation depuis l'état de l'historique du navigateur
@@ -21,38 +35,118 @@ onMounted(() => {
     orderIds.value = state.orderIds as string[]
     orderNumber.value = (state.orderNumber as string) || ''
     customerEmail.value = (state.customerEmail as string) || ''
+    customerName.value = (state.customerName as string) || ''
+    purchaseDate.value = (state.purchaseDate as string) || ''
     isFree.value = (state.isFree as boolean) || false
     qrCodes.value =
       (state.qrCodes as Array<{ orderId: string; orderNumber: string; qrCode: string }>) || []
+    items.value =
+      (state.items as Array<{
+        eventId: string
+        eventName: string
+        eventLocation: string
+        eventDate: string
+        eventTime: string
+        ticketTypeName: string
+        quantity: number
+        price: number
+      }>) || []
     showConfirmation.value = true
   } else {
     showConfirmation.value = false
   }
 })
-// Fonction pour retourner à la page d'accueil
-const goHome = () => {
-  router.push('/')
+
+const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: string }, itemIndex: number = 0) => {
+  const item = items.value[itemIndex] || items.value[0]
+  const doc = new jsPDF()
+
+  // Header
+  doc.setFontSize(24)
+  doc.setFont('helvetica', 'bold')
+  doc.text('AMIREVENT', 105, 20, { align: 'center' })
+
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'normal')
+  doc.text('BILLET D\'ACCÈS', 105, 30, { align: 'center' })
+
+  // Horizontal line
+  doc.setLineWidth(0.5)
+  doc.line(20, 35, 190, 35)
+
+  // Left side - Event Info
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.text('ÉVÉNEMENT', 20, 50)
+  doc.setLineWidth(0.3)
+  doc.line(20, 52, 90, 52)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.text('Nom:', 20, 62)
+  doc.text(item?.eventName || 'N/A', 50, 62)
+
+  doc.text('Lieu:', 20, 72)
+  doc.text(item?.eventLocation || 'N/A', 50, 72)
+
+  doc.text('Date:', 20, 82)
+  const formattedDate = item?.eventDate ? format(new Date(item.eventDate), 'dd MMMM yyyy', { locale: fr }) : 'N/A'
+  doc.text(formattedDate, 50, 82)
+
+  doc.text('Heure:', 20, 92)
+  doc.text(item?.eventTime || 'N/A', 50, 92)
+
+  doc.text('Prix:', 20, 102)
+  doc.text(`${item?.price?.toFixed(2) || '0.00'} €`, 50, 102)
+
+  doc.text('Type:', 20, 112)
+  doc.text(item?.ticketTypeName || 'Standard', 50, 112)
+
+  // Right side - Customer Info
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.text('CLIENT', 120, 50)
+  doc.line(120, 52, 190, 52)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.text('Nom:', 120, 62)
+  doc.text(customerName.value || 'N/A', 150, 62)
+
+  doc.text('Email:', 120, 72)
+  doc.text(customerEmail.value || 'N/A', 150, 72)
+
+  doc.text('Commande:', 120, 82)
+  doc.text(qrCode.orderNumber, 150, 82)
+
+  doc.text('Achat:', 120, 92)
+  const formattedPurchaseDate = purchaseDate.value ? format(new Date(purchaseDate.value), 'dd/MM/yyyy HH:mm', { locale: fr }) : 'N/A'
+  doc.text(formattedPurchaseDate, 150, 92)
+
+  // QR Code section - centered at bottom
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('Scannez ce code QR à l\'entrée:', 105, 130, { align: 'center' })
+
+  // Generate QR code as image using data URL
+  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCode.qrCode)}`
+  doc.addImage(qrDataUrl, 'PNG', 75, 135, 60, 60)
+
+  // Footer
+  doc.setFontSize(9)
+  doc.setTextColor(128, 128, 128)
+  doc.text('Merci pour votre achat! Conservez ce billet.', 105, 210, { align: 'center' })
+  doc.text('Amirevent - Votre plateforme de billetterie privée', 105, 216, { align: 'center' })
+
+  doc.save(`ticket-${qrCode.orderNumber}.pdf`)
 }
 
-const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: string }) => {
-  // Crée un fichier texte simple avec les informations du billet
-  const ticketData = `
-=== AMIREVENT TICKET ===
-Order Number: ${qrCode.orderNumber}
-Order ID: ${qrCode.orderId}
-Customer: ${customerEmail.value}
-
-Scan the QR code at the entrance.
-QR Code: ${qrCode.qrCode}
-=======================
-  `
-  const blob = new Blob([ticketData], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `ticket-${qrCode.orderNumber}.txt`
-  a.click()
-  URL.revokeObjectURL(url)
+const downloadAllTickets = () => {
+  qrCodes.value.forEach((qrCode, index) => {
+    setTimeout(() => {
+      downloadTicket(qrCode, index)
+    }, index * 500) // Small delay between downloads
+  })
 }
 </script>
 
@@ -78,7 +172,7 @@ QR Code: ${qrCode.qrCode}
         </div>
 
         <h1 class="font-display text-3xl font-bold text-foreground mb-4">
-          {{ isFree ? 'Inscription confirmée!':'Paiement réussi!' }}
+          {{ isFree ? 'Inscription confirmée!' : 'Paiement réussi!' }}
         </h1>
 
         <p class="text-muted-foreground mb-8">
@@ -104,7 +198,7 @@ QR Code: ${qrCode.qrCode}
                   [QR: {{ qrCode.qrCode.substring(0, 20) }}...]
                 </div>
               </div>
-              <button class="text-xs text-primary hover:underline" @click="downloadTicket(qrCode)">
+              <button class="text-xs text-primary hover:underline" @click="downloadTicket(qrCode, index)">
                 <FontAwesomeIcon :icon="faDownload" class="mr-1" />
                 Télécharger
               </button>
@@ -118,11 +212,11 @@ QR Code: ${qrCode.qrCode}
         </div>
 
         <div class="space-y-3">
-          <button
+          <button v-if="qrCodes.length > 0"
             class="w-full py-3 px-4 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
-            @click="goHome">
+            @click="downloadAllTickets">
             <FontAwesomeIcon :icon="faDownload" class="h-4 w-4 mr-2" />
-            Télécharger les billets
+            Télécharger les billets ({{ qrCodes.length }})
           </button>
 
           <RouterLink to="/" class="block">

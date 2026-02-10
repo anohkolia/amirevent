@@ -138,14 +138,27 @@ const handleSubmit = async () => {
 
     // Vide le panier et redirige vers la page de confirmation
     cartStore.clearCart()
+    const purchaseDate = new Date().toISOString()
     router.push({
       name: 'confirmation',
       state: {
         orderIds: result.qrCodes.map((qc: { orderId: string }) => qc.orderId),
         orderNumber: result.orderNumber,
         customerEmail: formData.value.customerEmail,
+        customerName: formData.value.customerName,
+        purchaseDate: purchaseDate,
         isFree: result.paymentStatus === 'completed',
         qrCodes: result.qrCodes,
+        items: items.value.map((item) => ({
+          eventId: item.event.id,
+          eventName: item.event.name,
+          eventLocation: item.event.location,
+          eventDate: item.event.date,
+          eventTime: item.event.time,
+          ticketTypeName: item.ticketType.name,
+          quantity: item.quantity,
+          price: getItemPrice(item),
+        })),
       },
     })
   } catch (error) {
