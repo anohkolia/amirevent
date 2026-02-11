@@ -32,6 +32,7 @@ onMounted(() => {
   const state = history.state as Record<string, unknown> //
   // Vérifie si les données de confirmation existent
   if (state && state.orderIds) {
+    // Utiliser les données de history.state
     orderIds.value = state.orderIds as string[]
     orderNumber.value = (state.orderNumber as string) || ''
     customerEmail.value = (state.customerEmail as string) || ''
@@ -52,13 +53,45 @@ onMounted(() => {
         price: number
       }>) || []
     showConfirmation.value = true
+
+    // Les données de history.state sont complètes, pas besoin de localStorage
+    localStorage.removeItem('amirevent_confirmation')
   } else {
+    // Essayer de récupérer depuis localStorage (si l'utilisateur a rafraîchi la page)
+    const savedConfirmation = localStorage.getItem('amirevent_confirmation')
+    if (savedConfirmation) {
+      try {
+        const parsed = JSON.parse(savedConfirmation)
+        if (parsed.orderIds) {
+          orderIds.value = parsed.orderIds || []
+          orderNumber.value = parsed.orderNumber || ''
+          customerEmail.value = parsed.customerEmail || ''
+          customerName.value = parsed.customerName || ''
+          purchaseDate.value = parsed.purchaseDate || ''
+          isFree.value = parsed.isFree || false
+          qrCodes.value = parsed.qrCodes || []
+          items.value = parsed.items || []
+          showConfirmation.value = true
+          return
+        }
+      } catch (e) {
+        console.error('Erreur lors de la lecture des données de confirmation depuis localStorage:', e)
+      }
+    }
     showConfirmation.value = false
   }
 })
 
 const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: string }, itemIndex: number = 0) => {
-  const item = items.value[itemIndex] || items.value[0]
+  // Utiliser les données de items.value (chargées depuis localStorage/history.state)
+  // plutôt que le store qui peut être vide après rafraîchissement
+  const item = items.value[itemIndex] || (items.value.length > 0 ? items.value[0] : null)
+
+  if (!item) {
+    console.error('No item data available for PDF generation')
+    return
+  }
+
   const doc = new jsPDF()
 
   // Header
@@ -84,17 +117,17 @@ const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
   doc.text('Nom:', 20, 62)
-  doc.text(item?.eventName || 'N/A', 50, 62)
+  doc.text(item.eventName ? String(item.eventName) : 'N/A', 50, 62)
 
   doc.text('Lieu:', 20, 72)
-  doc.text(item?.eventLocation || 'N/A', 50, 72)
+  doc.text(item.eventLocation ? String(item.eventLocation) : 'N/A', 50, 72)
 
   doc.text('Date:', 20, 82)
-  const formattedDate = item?.eventDate ? format(new Date(item.eventDate), 'dd MMMM yyyy', { locale: fr }) : 'N/A'
+  const formattedDate = item.eventDate ? format(new Date(item.eventDate), 'dd MMMM yyyy', { locale: fr }) : 'N/A'
   doc.text(formattedDate, 50, 82)
 
   doc.text('Heure:', 20, 92)
-  doc.text(item?.eventTime || 'N/A', 50, 92)
+  doc.text(item.eventTime ? String(item.eventTime) : 'N/A', 50, 92)
 
   doc.text('Prix:', 20, 102)
   doc.text(`${item?.price?.toFixed(2) || '0.00'} €`, 50, 102)

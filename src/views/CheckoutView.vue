@@ -135,31 +135,41 @@ const handleSubmit = async () => {
     }
 
     const result = await response.json()
+    const purchaseDate = new Date().toISOString()
+
+    // Copier les données d'items AVANT de vider le panier
+    const itemsData = items.value.map((item) => ({
+      eventId: item.event.id,
+      eventName: item.event.name,
+      eventLocation: item.event.location,
+      eventDate: item.event.date,
+      eventTime: item.event.time,
+      ticketTypeName: item.ticketType.name,
+      quantity: item.quantity,
+      price: getItemPrice(item),
+    }))
 
     // Vide le panier et redirige vers la page de confirmation
     cartStore.clearCart()
-    const purchaseDate = new Date().toISOString()
+
+    // Préparer les données de confirmation
+    const confirmationData = {
+      orderIds: result.qrCodes.map((qc: { orderId: string }) => qc.orderId),
+      orderNumber: result.orderNumber,
+      customerEmail: formData.value.customerEmail,
+      customerName: formData.value.customerName,
+      purchaseDate: purchaseDate,
+      isFree: result.paymentStatus === 'completed',
+      qrCodes: result.qrCodes,
+      items: itemsData,
+    }
+
+    // Stocker dans localStorage comme sauvegarde
+    localStorage.setItem('amirevent_confirmation', JSON.stringify(confirmationData))
+
     router.push({
       name: 'confirmation',
-      state: {
-        orderIds: result.qrCodes.map((qc: { orderId: string }) => qc.orderId),
-        orderNumber: result.orderNumber,
-        customerEmail: formData.value.customerEmail,
-        customerName: formData.value.customerName,
-        purchaseDate: purchaseDate,
-        isFree: result.paymentStatus === 'completed',
-        qrCodes: result.qrCodes,
-        items: items.value.map((item) => ({
-          eventId: item.event.id,
-          eventName: item.event.name,
-          eventLocation: item.event.location,
-          eventDate: item.event.date,
-          eventTime: item.event.time,
-          ticketTypeName: item.ticketType.name,
-          quantity: item.quantity,
-          price: getItemPrice(item),
-        })),
-      },
+      state: confirmationData,
     })
   } catch (error) {
     console.error('Checkout error:', error)
