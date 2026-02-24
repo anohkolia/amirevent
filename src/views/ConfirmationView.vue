@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faCheckCircle, faDownload, faEnvelope, faHome } from '@fortawesome/free-solid-svg-icons'
+import { faCheckCircle, faDownload, faEnvelope, faHome, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { jsPDF } from 'jspdf'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -15,6 +15,8 @@ const customerName = ref('')
 const purchaseDate = ref('')
 const isFree = ref(false)
 const showConfirmation = ref(false)
+const emailSent = ref(false)
+const emailError = ref<string | null>(null)
 const qrCodes = ref<Array<{ orderId: string; orderNumber: string; qrCode: string }>>([])
 const items = ref<Array<{
   eventId: string
@@ -39,6 +41,8 @@ onMounted(() => {
     customerName.value = (state.customerName as string) || ''
     purchaseDate.value = (state.purchaseDate as string) || ''
     isFree.value = (state.isFree as boolean) || false
+    emailSent.value = (state.emailSent as boolean) || false
+    emailError.value = (state.emailError as string) || null
     qrCodes.value =
       (state.qrCodes as Array<{ orderId: string; orderNumber: string; qrCode: string }>) || []
     items.value =
@@ -69,6 +73,8 @@ onMounted(() => {
           customerName.value = parsed.customerName || ''
           purchaseDate.value = parsed.purchaseDate || ''
           isFree.value = parsed.isFree || false
+          emailSent.value = parsed.emailSent || false
+          emailError.value = parsed.emailError || null
           qrCodes.value = parsed.qrCodes || []
           items.value = parsed.items || []
           showConfirmation.value = true
@@ -82,7 +88,30 @@ onMounted(() => {
   }
 })
 
-const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: string }, itemIndex: number = 0) => {
+async function generateQrCodeImageDataUrl(qrPayload: string): Promise<string | null> {
+  try {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=0&data=${encodeURIComponent(qrPayload)}`
+    const response = await fetch(qrUrl)
+
+    if (!response.ok) return null
+
+    const blob = await response.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('Erreur lors de la génération du QR code image:', error)
+    return null
+  }
+}
+
+const downloadTicket = async (
+  qrCode: { orderId: string; orderNumber: string; qrCode: string },
+  itemIndex: number = 0,
+) => {
   // Utiliser les données de items.value (chargées depuis localStorage/history.state)
   // plutôt que le store qui peut être vide après rafraîchissement
   const item = items.value[itemIndex] || (items.value.length > 0 ? items.value[0] : null)
@@ -92,84 +121,172 @@ const downloadTicket = (qrCode: { orderId: string; orderNumber: string; qrCode: 
     return
   }
 
-  const doc = new jsPDF()
+  const safeValue = (value?: string, fallback: string = 'N/A') => {
+    const v = value?.trim()
+    return v && v.length > 0 ? v : fallback
+  }
 
-  // Header
-  doc.setFontSize(24)
+  const formattedDate = item.eventDate
+    ? format(new Date(item.eventDate), 'dd MMMM yyyy', { locale: fr })
+    : 'N/A'
+  const formattedPurchaseDate = purchaseDate.value
+    ? format(new Date(purchaseDate.value), 'dd/MM/yyyy HH:mm', { locale: fr })
+    : 'N/A'
+  const amount = `${item?.price?.toFixed(2) || '0.00'} €`
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  })
+
+  const primary = { r: 46, g: 58, b: 138 }
+  const secondary = { r: 15, g: 23, b: 42 }
+  const border = { r: 203, g: 213, b: 225 }
+  const text = { r: 30, g: 41, b: 59 }
+  const muted = { r: 100, g: 116, b: 139 }
+  const soft = { r: 248, g: 250, b: 252 }
+
+  doc.setFillColor(248, 250, 252)
+  doc.rect(0, 0, 210, 297, 'F')
+
+  doc.setFillColor(255, 255, 255)
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.roundedRect(10, 10, 190, 277, 4, 4, 'FD')
+
+  doc.setFillColor(primary.r, primary.g, primary.b)
+  doc.roundedRect(10, 10, 190, 34, 4, 4, 'F')
+  doc.setFillColor(primary.r, primary.g, primary.b)
+  doc.rect(10, 40, 190, 4, 'F')
+
+  doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
-  doc.text('AMIREVENT', 105, 20, { align: 'center' })
-
-  doc.setFontSize(16)
-  doc.setFont('helvetica', 'normal')
-  doc.text('BILLET D\'ACCÈS', 105, 30, { align: 'center' })
-
-  // Horizontal line
-  doc.setLineWidth(0.5)
-  doc.line(20, 35, 190, 35)
-
-  // Left side - Event Info
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'bold')
-  doc.text('ÉVÉNEMENT', 20, 50)
-  doc.setLineWidth(0.3)
-  doc.line(20, 52, 90, 52)
-
-  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(22)
+  doc.text('AMIREVENT', 18, 23)
   doc.setFontSize(11)
-  doc.text('Nom:', 20, 62)
-  doc.text(item.eventName ? String(item.eventName) : 'N/A', 50, 62)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Billet d\'acces evenementiel', 18, 31)
 
-  doc.text('Lieu:', 20, 72)
-  doc.text(item.eventLocation ? String(item.eventLocation) : 'N/A', 50, 72)
-
-  doc.text('Date:', 20, 82)
-  const formattedDate = item.eventDate ? format(new Date(item.eventDate), 'dd MMMM yyyy', { locale: fr }) : 'N/A'
-  doc.text(formattedDate, 50, 82)
-
-  doc.text('Heure:', 20, 92)
-  doc.text(item.eventTime ? String(item.eventTime) : 'N/A', 50, 92)
-
-  doc.text('Prix:', 20, 102)
-  doc.text(`${item?.price?.toFixed(2) || '0.00'} €`, 50, 102)
-
-  doc.text('Type:', 20, 112)
-  doc.text(item?.ticketTypeName || 'Standard', 50, 112)
-
-  // Right side - Customer Info
-  doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text('CLIENT', 120, 50)
-  doc.line(120, 52, 190, 52)
+  doc.setFontSize(10)
+  doc.text('N° COMMANDE', 150, 21)
+  doc.setFontSize(12)
+  doc.text(qrCode.orderNumber, 150, 28)
+
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.setLineWidth(0.35)
+  doc.setLineDashPattern([1.2, 1.2], 0)
+  doc.line(16, 56, 194, 56)
+  doc.setLineDashPattern([], 0)
+
+  doc.setFillColor(soft.r, soft.g, soft.b)
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.roundedRect(16, 64, 112, 118, 3, 3, 'FD')
+
+  doc.setTextColor(secondary.r, secondary.g, secondary.b)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.text('DETAILS DE L\'EVENEMENT', 20, 74)
 
   doc.setFont('helvetica', 'normal')
+  doc.setTextColor(text.r, text.g, text.b)
+  doc.setFontSize(10)
+  doc.text('Nom', 20, 84)
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.text('Nom:', 120, 62)
-  doc.text(customerName.value || 'N/A', 150, 62)
+  doc.text(doc.splitTextToSize(safeValue(item.eventName), 102), 20, 90)
 
-  doc.text('Email:', 120, 72)
-  doc.text(customerEmail.value || 'N/A', 150, 72)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Lieu', 20, 106)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text(doc.splitTextToSize(safeValue(item.eventLocation), 102), 20, 112)
 
-  doc.text('Commande:', 120, 82)
-  doc.text(qrCode.orderNumber, 150, 82)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Date et heure', 20, 128)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text(`${formattedDate} - ${safeValue(item.eventTime)}`, 20, 134)
 
-  doc.text('Achat:', 120, 92)
-  const formattedPurchaseDate = purchaseDate.value ? format(new Date(purchaseDate.value), 'dd/MM/yyyy HH:mm', { locale: fr }) : 'N/A'
-  doc.text(formattedPurchaseDate, 150, 92)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Type de billet', 20, 150)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text(safeValue(item.ticketTypeName, 'Standard'), 20, 156)
 
-  // QR Code section - centered at bottom
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Montant', 20, 172)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.setTextColor(primary.r, primary.g, primary.b)
+  doc.text(amount, 20, 178)
+
+  doc.setFillColor(255, 255, 255)
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.roundedRect(132, 64, 62, 118, 3, 3, 'FD')
+
+  doc.setTextColor(secondary.r, secondary.g, secondary.b)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.text('PORTEUR', 136, 74)
+
+  doc.setTextColor(text.r, text.g, text.b)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Nom', 136, 84)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.text(doc.splitTextToSize(safeValue(customerName.value), 54), 136, 90)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Email', 136, 108)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.text(doc.splitTextToSize(safeValue(customerEmail.value), 54), 136, 114)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Date d\'achat', 136, 132)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.text(formattedPurchaseDate, 136, 138)
+
+  doc.setFillColor(255, 255, 255)
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.roundedRect(16, 190, 178, 82, 3, 3, 'FD')
+
+  doc.setTextColor(secondary.r, secondary.g, secondary.b)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  doc.text('Scannez ce code QR à l\'entrée:', 105, 130, { align: 'center' })
+  doc.text('CONTROLE D\'ACCES', 20, 201)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.setTextColor(muted.r, muted.g, muted.b)
+  doc.text('Presentez ce QR code a l\'entree. Un scan valide ce billet une seule fois.', 20, 208)
 
-  // Generate QR code as image using data URL
-  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrCode.qrCode)}`
-  doc.addImage(qrDataUrl, 'PNG', 75, 135, 60, 60)
+  doc.setFillColor(255, 255, 255)
+  doc.setDrawColor(border.r, border.g, border.b)
+  doc.roundedRect(130, 205, 52, 52, 2, 2, 'FD')
 
-  // Footer
-  doc.setFontSize(9)
-  doc.setTextColor(128, 128, 128)
-  doc.text('Merci pour votre achat! Conservez ce billet.', 105, 210, { align: 'center' })
-  doc.text('Amirevent - Votre plateforme de billetterie privée', 105, 216, { align: 'center' })
+  const qrImageData = await generateQrCodeImageDataUrl(qrCode.qrCode)
+  if (qrImageData) {
+    doc.addImage(qrImageData, 'PNG', 134, 209, 44, 44)
+  } else {
+    doc.setTextColor(muted.r, muted.g, muted.b)
+    doc.setFontSize(8.5)
+    doc.text('QR indisponible', 156, 231, { align: 'center' })
+  }
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(muted.r, muted.g, muted.b)
+  doc.text('Billet genere automatiquement - Merci de conserver ce document.', 20, 264)
+  doc.text('amirevent.com', 20, 270)
 
   doc.save(`ticket-${qrCode.orderNumber}.pdf`)
 }
@@ -208,13 +325,29 @@ const downloadAllTickets = () => {
           {{ isFree ? 'Inscription confirmée!' : 'Paiement réussi!' }}
         </h1>
 
-        <p class="text-muted-foreground mb-8">
+        <p v-if="emailSent" class="text-muted-foreground mb-8">
           {{ isFree ? 'Vos billets gratuits ont été réservés.' : 'Merci pour votre achat !' }}
           <br />
           Un courriel de confirmation contenant vos billets a été envoyé à:
         </p>
+        <p v-else class="text-muted-foreground mb-8">
+          {{ isFree ? 'Vos billets gratuits ont été réservés.' : 'Merci pour votre achat !' }}
+          <br />
+          L’envoi par email n’a pas abouti pour le moment. Vous pouvez télécharger vos billets ci-dessous.
+        </p>
 
         <p class="font-semibold text-primary mb-8">{{ customerEmail }}</p>
+
+        <div v-if="!emailSent" class="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-left">
+          <div class="flex items-start gap-2 text-amber-800">
+            <FontAwesomeIcon :icon="faTriangleExclamation" class="mt-0.5 h-4 w-4" />
+            <div class="text-sm">
+              <p class="font-medium">Email non envoyé</p>
+              <p v-if="emailError" class="mt-1 break-words">{{ emailError }}</p>
+              <p v-else class="mt-1">Aucune erreur détaillée n’a été retournée.</p>
+            </div>
+          </div>
+        </div>
 
         <div v-if="orderNumber" class="text-sm text-muted-foreground mb-4">
           Numéro de commande <span class="font-mono font-semibold">{{ orderNumber }}</span>
@@ -239,7 +372,7 @@ const downloadAllTickets = () => {
           </div>
         </div>
 
-        <div class="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-8">
+        <div v-if="emailSent" class="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-8">
           <FontAwesomeIcon :icon="faEnvelope" class="h-4 w-4" />
           <span>Consultez votre boîte mail pour trouver votre/vos billet(s) avec code QR.</span>
         </div>

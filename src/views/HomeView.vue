@@ -95,7 +95,7 @@ watch(sentinel, (el) => {
 // Optionel: quand la requête de recherche change, réinitialiser les événements si la recherche est vide
 watch(
   () => searchQuery.value,
-  (val, old) => {
+  (val) => {
     // Si la recherche est vidée, recharger les événements
     if (!val) {
       if (eventsStore.events.length === 0) loadFirstPage()

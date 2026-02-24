@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faTicket, faCartShopping, faUser } from '@fortawesome/free-solid-svg-icons'
+import { faTicket, faCartShopping } from '@fortawesome/free-solid-svg-icons'
 
 const cartStore = useCartStore()
 const totalItems = computed(() => cartStore.getTotalItems())

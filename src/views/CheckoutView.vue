@@ -108,14 +108,22 @@ const handleSubmit = async () => {
     // Get auth token if user is logged in
     const { data: sessionData } = await supabase.auth.getSession()
     const accessToken = sessionData.session?.access_token
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    if (!publishableKey) {
+      throw new Error('Missing VITE_SUPABASE_PUBLISHABLE_KEY configuration')
+    }
 
     // Prepare request headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      apikey: publishableKey,
     }
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`
-    }
+
+    // Prefer user token; fallback to anon/publishable key for unauthenticated checkout.
+    const bearerToken = accessToken || anonKey || publishableKey
+    headers['Authorization'] = `Bearer ${bearerToken}`
 
     // Appel à la fonction edge Supabase pour la création sécurisée de la commande
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-order`, {
@@ -131,11 +139,16 @@ const handleSubmit = async () => {
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error || 'Failed to create order')
+      throw new Error(error.error || error.message || 'Failed to create order')
     }
 
     const result = await response.json()
+
     const purchaseDate = new Date().toISOString()
+
+    if (!result.emailSent) {
+      toast.warning('Commande créée, mais l’email des billets n’a pas pu être envoyé.')
+    }
 
     // Copier les données d'items AVANT de vider le panier
     const itemsData = items.value.map((item) => ({
@@ -160,6 +173,8 @@ const handleSubmit = async () => {
       customerName: formData.value.customerName,
       purchaseDate: purchaseDate,
       isFree: result.paymentStatus === 'completed',
+      emailSent: result.emailSent || false,
+      emailError: result.emailError || null,
       qrCodes: result.qrCodes,
       items: itemsData,
     }

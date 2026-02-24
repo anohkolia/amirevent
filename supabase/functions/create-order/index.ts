@@ -11,15 +11,11 @@ if (!supabaseUrl || !supabaseServiceKey) {
 // Create service role client for admin operations
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-// Create anon key client for JWT verification (if provided)
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
-
 // CORS headers configuration
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
 }
 
 // Helper function to create JSON response with CORS headers
@@ -76,6 +72,22 @@ interface OrderRequest {
   items: OrderItemInput[]
 }
 
+interface TicketTypeData {
+  id: string
+  event_id: string
+  name: string
+  price: number
+  capacity: number
+  sold: number
+  events: {
+    id: string
+    name: string
+    location: string
+    date: string
+    time: string
+  } | null
+}
+
 // Generate unique QR code data
 function generateQRData(orderId: string, orderNumber: string, customerEmail: string): string {
   const timestamp = Date.now()
@@ -89,32 +101,68 @@ function generateQRData(orderId: string, orderNumber: string, customerEmail: str
   return btoa(JSON.stringify(payload))
 }
 
-// Verify JWT token and get user info
+// Verify JWT token and get user info (optional for anonymous users)
+// Simplified version - always allow anonymous access
 async function verifyToken(authHeader: string | null): Promise<{ userId: string | null; isAuthenticated: boolean }> {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Always allow anonymous access - the Authorization header is optional
+  // Users can place orders without being logged in
+  if (!authHeader) {
+    console.log('No authorization header - proceeding as anonymous user')
     return { userId: null, isAuthenticated: false }
   }
 
+  // If header is provided, try to extract user info
   const token = authHeader.replace('Bearer ', '').trim()
   if (!token) {
     return { userId: null, isAuthenticated: false }
   }
 
-  try {
-    // Try to get user info using the anon client
-    if (supabaseAnon) {
-      const { data, error } = await supabaseAnon.auth.getUser(token)
-      if (data.user && !error) {
-        return { userId: data.user.id, isAuthenticated: true }
-      }
-    }
-  } catch {
-    console.log('Token verification failed, proceeding as anonymous')
-  }
-
-  // If token verification fails but token exists, still allow request (edge cases)
-  // The token format validation is minimal here
+  // For now, just log and allow the request even if token is invalid
+  // This allows users to complete orders even if their session expired
+  console.log('Authorization header present but not validating (anonymous access allowed)')
   return { userId: null, isAuthenticated: false }
+}
+
+// Send ticket email via Edge Function
+async function sendTicketEmail(params: {
+  customerEmail: string
+  customerName: string
+  orderNumber: string
+  items: Array<{
+    eventName: string
+    eventLocation: string
+    eventDate: string
+    eventTime: string
+    ticketTypeName: string
+    quantity: number
+    price: number
+  }>
+  qrCodes: Array<{ orderNumber: string; qrCode: string }>
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-ticket-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (emailResponse.ok) {
+      const result = await emailResponse.json()
+      return { success: true, messageId: result.messageId }
+    } else {
+      const error = await emailResponse.text()
+      return { success: false, error }
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    }
+  }
 }
 
 // Main handler
@@ -155,12 +203,14 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Invalid customer name' }, 400)
     }
 
-    // Fetch ticket types with current prices and capacity from database
+    // Extract ticket type IDs from items
     const ticketTypeIds = body.items.map((item) => item.ticket_type_id)
+
+    // Fetch ticket types with events info for email
     const { data: ticketTypes, error: ticketError } = await supabaseAdmin
       .from('ticket_types')
-      .select('id, event_id, name, price, capacity, sold, events(name)')
-      .in('id', ticketTypeIds)
+      .select('id, event_id, name, price, capacity, sold, events(id, name, location, date, time)')
+      .in('id', ticketTypeIds) as { data: TicketTypeData[] | null; error: Error | null }
 
     if (ticketError) {
       console.error('Error fetching ticket types:', ticketError)
@@ -229,7 +279,6 @@ Deno.serve(async (req: Request) => {
       payment_status: paymentStatus,
       order_number: orderNumber,
       is_member: item.is_member,
-      user_id: userId, // Link to user if authenticated, null if anonymous
     }))
 
     // Insert orders
@@ -241,6 +290,11 @@ Deno.serve(async (req: Request) => {
     if (orderError) {
       console.error('Error creating orders:', orderError)
       return jsonResponse({ error: 'Failed to create orders' }, 500)
+    }
+
+    if (!orders || orders.length !== validatedItems.length) {
+      console.error('Unexpected order insert result:', orders)
+      return jsonResponse({ error: 'Failed to create complete order set' }, 500)
     }
 
     // Update ticket sold counts and generate QR codes
@@ -274,6 +328,46 @@ Deno.serve(async (req: Request) => {
       await supabaseAdmin.from('orders').update({ qr_code: qrData }).eq('id', order.id)
     }
 
+    // Send confirmation email with tickets
+    let emailSent = false
+    let emailError: string | null = null
+
+    try {
+      // Prepare items with full event info for email
+      const emailItems = validatedItems.map((item) => {
+        const dbTicket = ticketTypeMap.get(item.ticket_type_id)
+        const event = dbTicket?.events
+        return {
+          eventName: event?.name || item.event_name || 'Événement',
+          eventLocation: event?.location || '',
+          eventDate: event?.date || '',
+          eventTime: event?.time || '',
+          ticketTypeName: item.ticket_type_name || item.event_name || 'Standard',
+          quantity: item.quantity,
+          price: Math.round(item.dbPrice * item.quantity * 100) / 100,
+        }
+      })
+
+      const emailResult = await sendTicketEmail({
+        customerEmail: sanitizedEmail,
+        customerName: sanitizedName,
+        orderNumber,
+        items: emailItems,
+        qrCodes: qrCodes.map((qc) => ({ orderNumber: qc.orderNumber, qrCode: qc.qrCode })),
+      })
+
+      emailSent = emailResult.success
+      if (!emailResult.success) {
+        emailError = emailResult.error || 'Unknown error'
+        console.error('Failed to send ticket email:', emailError)
+      } else {
+        console.log('Ticket email sent successfully:', emailResult.messageId)
+      }
+    } catch (err) {
+      console.error('Error sending ticket email:', err)
+      emailError = err instanceof Error ? err.message : 'Unknown error'
+    }
+
     return jsonResponse({
       success: true,
       orderNumber,
@@ -281,6 +375,8 @@ Deno.serve(async (req: Request) => {
       paymentStatus,
       qrCodes,
       isAuthenticated,
+      emailSent,
+      emailError,
     })
   } catch (err) {
     console.error('Error processing order:', err)
@@ -292,4 +388,3 @@ Deno.serve(async (req: Request) => {
     )
   }
 })
-
