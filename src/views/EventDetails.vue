@@ -16,7 +16,7 @@ const loading = ref(true)
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
-  return date.toLocaleDateString('fr-EU', {
+  return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -62,10 +62,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen py-10 md:py-12">
 
     <!-- Chargement  -->
-    <div v-if="isLoading" class="container py-8">
+    <div v-if="isLoading" class="app-container">
       <div class="h-8 w-32 mb-6 bg-muted rounded animate-pulse"></div>
       <div class="grid lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 space-y-6">
@@ -80,22 +80,17 @@ onMounted(async () => {
     </div>
 
     <!-- Evenement non trouvé -->
-    <div v-else-if="!event" class="container py-16 text-center">
+    <div v-else-if="!event" class="app-container py-16 text-center">
       <h1 class="font-display text-2xl font-semibold text-foreground mb-4">Evénement non trouvé</h1>
       <p class="text-muted-foreground mb-6">
         L'événement que vous recherchez n'existe pas ou a été supprimé.
       </p>
-      <RouterLink to="/">
-        <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium">
-          Retour aux événements
-        </button>
-      </RouterLink>
+      <RouterLink to="/" class="btn btn-primary">Retour aux événements</RouterLink>
     </div>
 
     <!-- Event Details -->
-    <div v-else class="container py-8">
-      <RouterLink to="/"
-        class="inline-flex items-center gap-2 mb-6 text-muted-foreground hover:text-foreground transition-colors">
+    <div v-else class="app-container">
+      <RouterLink to="/" class="btn btn-ghost mb-5 inline-flex px-0 text-sm">
         <FontAwesomeIcon :icon="faArrowLeft" class="h-4 w-4" />
         <span>Retour aux événements</span>
       </RouterLink>
@@ -142,7 +137,7 @@ onMounted(async () => {
 
         <!-- Ticket Selection -->
         <div class="lg:sticky lg:top-24 h-fit">
-          <div class="bg-card border border-border rounded-lg p-6">
+          <div class="panel rounded-xl p-6">
             <h3 class="font-display text-lg font-semibold text-foreground mb-4">Obtenez des billets</h3>
             <TicketSelector v-if="ticketTypes.length > 0" :event="event" />
             <p v-else class="text-muted-foreground text-center py-8">

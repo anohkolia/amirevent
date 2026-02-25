@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faCheckCircle, faDownload, faEnvelope, faHome, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
@@ -28,6 +28,14 @@ const items = ref<Array<{
   quantity: number
   price: number
 }>>([])
+
+const formattedPurchaseDate = computed(() => {
+  if (!purchaseDate.value) return ''
+  return format(new Date(purchaseDate.value), 'dd MMMM yyyy à HH:mm', { locale: fr })
+})
+
+const buildQrPreviewUrl = (qrPayload: string) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=${encodeURIComponent(qrPayload)}`
 
 onMounted(() => {
   // Récupération des données de confirmation depuis l'état de l'historique du navigateur
@@ -301,103 +309,113 @@ const downloadAllTickets = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-
-    <!-- No Order Found -->
-    <div v-if="!showConfirmation" class="container py-16 text-center">
-      <h1 class="font-display text-2xl font-semibold text-foreground mb-4">Aucune commande trouvée</h1>
-      <RouterLink to="/">
-        <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium">
-          Retour aux événements
-        </button>
-      </RouterLink>
+  <div class="min-h-screen py-10 md:py-14">
+    <div v-if="!showConfirmation" class="app-container max-w-2xl">
+      <section class="panel py-14 text-center">
+        <h1 class="font-display text-2xl font-semibold text-foreground">Aucune commande trouvée</h1>
+        <p class="mt-2 text-muted-foreground">Aucune donnée de confirmation n’a été détectée dans cette session.</p>
+        <RouterLink to="/" class="btn btn-primary mt-6">Retour aux événements</RouterLink>
+      </section>
     </div>
 
-    <!-- Confirmation -->
-    <div v-else class="container py-16 max-w-xl">
-      <div class="bg-card border border-border rounded-lg text-center p-8">
-        <!-- Success Icon -->
-        <div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
-          <FontAwesomeIcon :icon="faCheckCircle" class="h-10 w-10 text-primary" />
-        </div>
-
-        <h1 class="font-display text-3xl font-bold text-foreground mb-4">
-          {{ isFree ? 'Inscription confirmée!' : 'Paiement réussi!' }}
-        </h1>
-
-        <p v-if="emailSent" class="text-muted-foreground mb-8">
-          {{ isFree ? 'Vos billets gratuits ont été réservés.' : 'Merci pour votre achat !' }}
-          <br />
-          Un courriel de confirmation contenant vos billets a été envoyé à:
-        </p>
-        <p v-else class="text-muted-foreground mb-8">
-          {{ isFree ? 'Vos billets gratuits ont été réservés.' : 'Merci pour votre achat !' }}
-          <br />
-          L’envoi par email n’a pas abouti pour le moment. Vous pouvez télécharger vos billets ci-dessous.
-        </p>
-
-        <p class="font-semibold text-primary mb-8">{{ customerEmail }}</p>
-
-        <div v-if="!emailSent" class="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-left">
-          <div class="flex items-start gap-2 text-amber-800">
-            <FontAwesomeIcon :icon="faTriangleExclamation" class="mt-0.5 h-4 w-4" />
-            <div class="text-sm">
-              <p class="font-medium">Email non envoyé</p>
-              <p v-if="emailError" class="mt-1 break-words">{{ emailError }}</p>
-              <p v-else class="mt-1">Aucune erreur détaillée n’a été retournée.</p>
+    <div v-else class="app-container max-w-5xl">
+      <section class="panel rounded-2xl p-6 md:p-8">
+        <div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/20">
+              <FontAwesomeIcon :icon="faCheckCircle" class="h-9 w-9 text-primary" aria-hidden="true" />
             </div>
-          </div>
-        </div>
 
-        <div v-if="orderNumber" class="text-sm text-muted-foreground mb-4">
-          Numéro de commande <span class="font-mono font-semibold">{{ orderNumber }}</span>
-        </div>
+            <h1 class="font-display text-3xl font-bold text-foreground">
+              {{ isFree ? 'Inscription confirmée' : 'Paiement validé' }}
+            </h1>
 
-        <!-- QR Codes Section -->
-        <div v-if="qrCodes.length > 0" class="mb-8">
-          <h3 class="text-sm font-medium text-muted-foreground mb-4">Vos billets</h3>
-          <div class="space-y-4">
-            <div v-for="(qrCode, index) in qrCodes" :key="qrCode.orderId" class="bg-muted/50 rounded-lg p-4">
-              <p class="text-sm font-medium text-foreground mb-2">Billet {{ index + 1 }}</p>
-              <div class="bg-white p-4 rounded inline-block mb-2">
-                <div class="w-32 h-32 bg-gray-200 flex items-center justify-center text-xs text-muted-foreground">
-                  [QR: {{ qrCode.qrCode.substring(0, 20) }}...]
+            <p class="mt-3 text-muted-foreground">
+              {{ isFree ? 'Vos billets gratuits sont réservés.' : 'Merci pour votre achat.' }}
+              <span v-if="emailSent"> Un email de confirmation a été envoyé à l’adresse ci-dessous.</span>
+              <span v-else> L’envoi de l’email a échoué pour le moment, vos billets restent disponibles ici.</span>
+            </p>
+
+            <p class="mt-4 text-lg font-semibold text-primary">{{ customerEmail }}</p>
+
+            <div class="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+              <p v-if="orderNumber" class="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+                N° commande: <span class="font-mono font-semibold text-foreground">{{ orderNumber }}</span>
+              </p>
+              <p v-if="formattedPurchaseDate" class="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+                Date: <span class="font-semibold text-foreground">{{ formattedPurchaseDate }}</span>
+              </p>
+            </div>
+
+            <div
+              v-if="!emailSent"
+              class="mt-5 rounded-lg border border-amber-300/70 bg-amber-200/10 px-4 py-3 text-left text-amber-100"
+              role="status"
+            >
+              <div class="flex items-start gap-2">
+                <FontAwesomeIcon :icon="faTriangleExclamation" class="mt-0.5 h-4 w-4" />
+                <div class="text-sm">
+                  <p class="font-medium">Email non envoyé</p>
+                  <p v-if="emailError" class="mt-1 break-words">{{ emailError }}</p>
+                  <p v-else class="mt-1">Aucun détail complémentaire n’a été retourné.</p>
                 </div>
               </div>
-              <button class="text-xs text-primary hover:underline" @click="downloadTicket(qrCode, index)">
-                <FontAwesomeIcon :icon="faDownload" class="mr-1" />
-                Télécharger
-              </button>
             </div>
+
+            <div v-if="emailSent" class="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <FontAwesomeIcon :icon="faEnvelope" class="h-4 w-4" />
+              Consultez votre boîte mail pour retrouver vos billets QR.
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-border/60 bg-background/55 p-4 md:p-5">
+            <h2 class="font-display text-lg font-semibold text-foreground">
+              Vos billets
+              <span class="text-sm font-normal text-muted-foreground">({{ qrCodes.length }})</span>
+            </h2>
+
+            <div v-if="qrCodes.length > 0" class="mt-4 space-y-3">
+              <article
+                v-for="(qrCode, index) in qrCodes"
+                :key="qrCode.orderId"
+                class="rounded-lg border border-border/60 bg-card/65 p-3"
+              >
+                <p class="text-sm font-semibold text-foreground">Billet {{ index + 1 }}</p>
+                <p class="mt-0.5 text-xs text-muted-foreground">Commande #{{ qrCode.orderNumber }}</p>
+
+                <div class="mt-2 rounded-lg bg-white p-2">
+                  <img
+                    :src="buildQrPreviewUrl(qrCode.qrCode)"
+                    :alt="`QR billet ${index + 1}`"
+                    class="mx-auto h-28 w-28"
+                    loading="lazy"
+                  />
+                </div>
+
+                <button type="button" class="btn btn-secondary mt-3 w-full text-sm" @click="downloadTicket(qrCode, index)">
+                  <FontAwesomeIcon :icon="faDownload" class="h-4 w-4" />
+                  Télécharger ce billet
+                </button>
+              </article>
+            </div>
+
+            <p v-else class="mt-3 text-sm text-muted-foreground">Aucun billet disponible au téléchargement.</p>
           </div>
         </div>
 
-        <div v-if="emailSent" class="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-8">
-          <FontAwesomeIcon :icon="faEnvelope" class="h-4 w-4" />
-          <span>Consultez votre boîte mail pour trouver votre/vos billet(s) avec code QR.</span>
-        </div>
-
-        <div class="space-y-3">
-          <button v-if="qrCodes.length > 0"
-            class="w-full py-3 px-4 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
-            @click="downloadAllTickets">
-            <FontAwesomeIcon :icon="faDownload" class="h-4 w-4 mr-2" />
-            Télécharger les billets ({{ qrCodes.length }})
+        <div class="mt-6 flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row">
+          <button v-if="qrCodes.length > 0" type="button" class="btn btn-primary flex-1" @click="downloadAllTickets">
+            <FontAwesomeIcon :icon="faDownload" class="h-4 w-4" />
+            Télécharger tous les billets
           </button>
-
-          <RouterLink to="/" class="block">
-            <button variant="outline"
-              class="w-full py-3 px-4 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent text-foreground font-medium transition-colors">
-              <FontAwesomeIcon :icon="faHome" class="h-4 w-4 mr-2" />
-              Retour aux événements
-            </button>
+          <RouterLink to="/" class="btn btn-secondary flex-1">
+            <FontAwesomeIcon :icon="faHome" class="h-4 w-4" />
+            Retour aux événements
           </RouterLink>
         </div>
 
-        <p v-if="orderIds.length > 0" class="text-xs text-muted-foreground mt-8">
-          Commande ID: {{ orderIds.join(', ') }}
-        </p>
-      </div>
+        <p v-if="orderIds.length > 0" class="mt-4 text-xs text-muted-foreground">ID de commande: {{ orderIds.join(', ') }}</p>
+      </section>
     </div>
   </div>
 </template>

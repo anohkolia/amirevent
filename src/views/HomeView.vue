@@ -1,50 +1,33 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faCalendarDays, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useEventsStore } from '@/stores/events'
 import SearchBar from '@/components/SearchBar.vue'
 import EventCard from '@/components/EventCard.vue'
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faCalendar, faStar } from '@fortawesome/free-solid-svg-icons'
 
-// Store Pinia pour gérer les événements (état, actions, pagination)
 const eventsStore = useEventsStore()
-
-// Variable réactive pour la barre de recherche, Contient le texte saisi par l'utilisateur
 const searchQuery = ref('')
 
-/**
- * Propriété calculée qui filtre les événements selon la recherche
- *
- * Logique de filtrage :
- * . Si aucun événement n'est chargé → retourne un tableau vide
- * . Si la recherche est vide → retourne tous les événements
- * . Si une recherche est active → filtre par nom ou lieu (insensible à la casse)
- */
 const filteredEvents = computed(() => {
-  // Récupère les événements depuis le store
   const events = eventsStore.events
-  // Vérifie si des événements existent
-  if (!events || events.length === 0) {
-    return []
-  }
-  // Si pas de recherche, retourne tous les événements
-  if (!searchQuery.value) {
-    return events
-  }
-  // Convertit la recherche en minuscules pour comparaison insensible à la casse
-  const query = searchQuery.value.toLowerCase()
-  // Filtre les événements où le nom OU le lieu contient la requête
+  if (!events.length) return []
+
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return events
+
   return events.filter(
     (event) =>
-      // Vérifie si le nom de l'événement contient la recherche
       event.name.toLowerCase().includes(query) ||
-      // Vérifie si le lieu contient la recherche (optionnel avec ??)
       (event.location?.toLowerCase().includes(query) ?? false),
   )
 })
 
+const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
+const eventsCountLabel = computed(() =>
+  filteredEvents.value.length <= 1 ? 'événement disponible' : 'événements disponibles',
+)
 
-// Chargement infini
 const sentinel = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -54,115 +37,117 @@ async function loadFirstPage() {
 }
 
 async function loadNextPage() {
-  if (eventsStore.loading || !eventsStore.hasMore) return
+  if (eventsStore.loading || !eventsStore.hasMore || hasSearchQuery.value) return
   const next = (eventsStore.page ?? 0) + 1
   await eventsStore.fetchEvents({ page: next, pageSize: eventsStore.pageSize, append: true })
 }
 
 onMounted(() => {
-  // Charge la première page au montage
   loadFirstPage()
 
-  // Configure l'observer pour le défilement infini
   observer = new IntersectionObserver(
     (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          // Si une recherche est en cours, ne pas charger plus d'événements
-          if (searchQuery.value) return
-          loadNextPage()
-        }
+      if (entries.some((entry) => entry.isIntersecting)) {
+        loadNextPage()
       }
     },
-    { root: null, rootMargin: '200px', threshold: 0.1 },
+    { root: null, rootMargin: '220px', threshold: 0.1 },
   )
 
   if (sentinel.value) observer.observe(sentinel.value)
 })
 
 onUnmounted(() => {
-  if (observer && sentinel.value) {
-    observer.unobserve(sentinel.value)
+  if (observer) {
     observer.disconnect()
   }
 })
 
-// Si le sentinel change (re-render), ré-observer le nouvel élément
-watch(sentinel, (el) => {
-  if (observer && el) observer.observe(el)
+watch(sentinel, (newEl, oldEl) => {
+  if (!observer) return
+  if (oldEl) observer.unobserve(oldEl)
+  if (newEl) observer.observe(newEl)
 })
 
-// Optionel: quand la requête de recherche change, réinitialiser les événements si la recherche est vide
-watch(
-  () => searchQuery.value,
-  (val) => {
-    // Si la recherche est vidée, recharger les événements
-    if (!val) {
-      if (eventsStore.events.length === 0) loadFirstPage()
-    }
-  },
-)
+watch(hasSearchQuery, (active) => {
+  if (!active && eventsStore.events.length === 0) {
+    loadFirstPage()
+  }
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen">
+    <section class="relative overflow-hidden py-16 md:py-24">
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/8 to-transparent" />
+      <div class="pointer-events-none absolute -left-24 top-10 h-60 w-60 rounded-full bg-primary/15 blur-3xl" />
+      <div class="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl" />
 
-    <!-- Hero Section -->
-    <section class="relative py-16 md:py-24 overflow-hidden">
-      <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-      <div class="container relative">
-        <div class="max-w-3xl mx-auto text-center">
-          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
-            <FontAwesomeIcon :icon="faStar" class="h-4 w-4" />
-            <span class="text-sm font-medium">Découvrez des événements incroyables</span>
+      <div class="app-container relative">
+        <div class="mx-auto max-w-3xl text-center">
+          <div class="mb-5 inline-flex items-center gap-2 rounded-full bg-primary/12 px-4 py-2 text-primary">
+            <FontAwesomeIcon :icon="faStar" class="h-4 w-4" aria-hidden="true" />
+            <span class="text-sm font-semibold">La billetterie de vos événements majeurs</span>
           </div>
-          <h1 class="font-display text-4xl md:text-6xl font-bold text-foreground mb-6">
-            Trouvez votre prochaine <span class="text-gradient">Expérience</span>
+
+          <h1 class="font-display text-4xl font-bold leading-tight text-foreground md:text-6xl">
+            Réservez votre prochaine <span class="text-gradient">expérience</span> en quelques secondes
           </h1>
-          <p class="text-lg text-muted-foreground mb-8">
-            Parcourez les événements à venir et réservez vos billets en quelques secondes. Simple, rapide et sécurisé.
+
+          <p class="mx-auto mt-5 max-w-2xl text-base text-muted-foreground md:text-lg">
+            Explorez les événements à venir, comparez les tarifs et finalisez vos billets avec un parcours simple et
+            fiable.
           </p>
-          <div class="max-w-md mx-auto">
+
+          <div class="mx-auto mt-8 max-w-xl">
             <SearchBar v-model="searchQuery" />
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Events Section -->
-    <section class="py-12 md:py-16">
-      <div class="container">
-        <div class="flex items-center gap-3 mb-8">
-          <FontAwesomeIcon :icon="faCalendar" class="h-6 w-6 text-primary" />
-          <h2 class="font-display text-2xl font-semibold text-foreground">Événements à venir</h2>
-          <span v-if="eventsStore.events.length > 0" class="text-muted-foreground">
-            ({{ filteredEvents.length }} {{ filteredEvents.length === 1 ? 'événement' : 'événements' }})
-          </span>
+    <section class="pb-16 md:pb-20">
+      <div class="app-container">
+        <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div class="mb-2 inline-flex items-center gap-2 text-primary">
+              <FontAwesomeIcon :icon="faCalendarDays" class="h-5 w-5" aria-hidden="true" />
+              <span class="text-sm font-semibold uppercase tracking-wide">Programmation</span>
+            </div>
+            <h2 class="font-display text-2xl font-semibold text-foreground md:text-3xl">Événements à venir</h2>
+          </div>
+          <p class="rounded-full border border-border/70 bg-card/70 px-4 py-2 text-sm text-muted-foreground">
+            {{ filteredEvents.length }} {{ eventsCountLabel }}
+          </p>
         </div>
 
-        <div v-if="eventsStore.loading && eventsStore.events.length === 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div v-for="i in 6" :key="i" class="space-y-4 animate-pulse">
-            <div class="aspect-video rounded-lg bg-muted" />
-            <div class="h-6 w-3/4 rounded bg-muted" />
-            <div class="h-4 w-1/2 rounded bg-muted" />
+        <div
+          v-if="eventsStore.loading && eventsStore.events.length === 0"
+          class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3"
+          aria-hidden="true"
+        >
+          <div v-for="i in 6" :key="i" class="panel animate-pulse p-4">
+            <div class="aspect-video rounded-lg bg-muted/70" />
+            <div class="mt-4 h-6 w-2/3 rounded bg-muted/70" />
+            <div class="mt-3 h-4 w-1/2 rounded bg-muted/70" />
           </div>
         </div>
 
-        <div v-else-if="filteredEvents.length === 0" class="text-center py-16">
-          <FontAwesomeIcon :icon="faCalendar" class="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 class="font-display text-xl font-semibold text-foreground mb-2">
-            {{ searchQuery ? 'Aucun événement trouvé' : 'Aucun événement disponible' }}
+        <div v-else-if="filteredEvents.length === 0" class="panel py-14 text-center">
+          <FontAwesomeIcon :icon="faCalendarDays" class="mx-auto h-14 w-14 text-muted-foreground" aria-hidden="true" />
+          <h3 class="mt-4 font-display text-xl font-semibold text-foreground">
+            {{ hasSearchQuery ? 'Aucun événement trouvé' : 'Aucun événement publié pour le moment' }}
           </h3>
-          <p class="text-muted-foreground">
+          <p class="mt-2 text-muted-foreground">
             {{
-              searchQuery
-                ? 'Essayez d\'ajuster vos critères de recherche'
-                : 'Revenez bientôt pour découvrir les prochains événements !'
+              hasSearchQuery
+                ? 'Essayez une recherche plus large ou un autre mot-clé.'
+                : 'Revenez bientôt, de nouveaux événements sont en préparation.'
             }}
           </p>
         </div>
 
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           <EventCard
             v-for="event in filteredEvents"
             :key="String(event.id)"
@@ -171,28 +156,14 @@ watch(
           />
         </div>
 
-        <!-- Chargement / sentinel pour le défilement infini -->
-        <div class="flex items-center justify-center mt-8">
-          <div v-if="eventsStore.loading && eventsStore.events.length > 0" class="loader">Chargement...</div>
+        <div class="mt-8 flex items-center justify-center">
+          <p v-if="eventsStore.loading && eventsStore.events.length > 0" class="text-sm text-muted-foreground">
+            Chargement des prochains événements...
+          </p>
         </div>
 
-        <div ref="sentinel" class="h-6" aria-hidden="true"></div>
+        <div ref="sentinel" class="h-8" aria-hidden="true" />
       </div>
     </section>
   </div>
 </template>
-
-<style scoped>
-.text-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* style de chargeur minimal */
-.loader {
-  padding: 0.5rem 1rem;
-  color: var(--muted-foreground);
-}
-</style>

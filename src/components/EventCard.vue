@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faCalendarDays, faClock, faLocationDot } from '@fortawesome/free-solid-svg-icons'
 
 interface TicketType {
   id?: string
@@ -22,95 +25,84 @@ interface EventType {
 
 const { event, ticketTypes } = defineProps<{ event: EventType; ticketTypes?: TicketType[] }>()
 
-// Calcul du prix le plus bas parmi les types de billets disponibles
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
+
 const lowestPrice = computed<number | null>(() => {
-  const t = ticketTypes
-  if (!t || t.length === 0) return null
-  return Math.min(...t.map((x) => Number(x.price || 0)))
+  const types = ticketTypes ?? []
+  if (!types.length) return null
+  return Math.min(...types.map((ticket) => Number(ticket.price || 0)))
 })
 
-// Vérifie si au moins un type de billet a de la disponibilité
 const hasAvailability = computed(() => {
-  const t = ticketTypes
-  if (!t) return true
-  return t.some((x) => Number(x.capacity || 0) - Number(x.sold || 0) > 0)
+  const types = ticketTypes ?? []
+  if (!types.length) return true
+  return types.some((ticket) => Number(ticket.capacity || 0) - Number(ticket.sold || 0) > 0)
 })
 
-// Fonction pour formater la date
 const formattedDate = computed(() => {
-  const d = event.date
-  if (!d) return ''
-  return format(new Date(d), 'EEEE, MMMM d, yyyy')
+  if (!event.date) return ''
+  return format(new Date(event.date), 'EEEE d MMMM yyyy', { locale: fr })
+})
+
+const formattedTime = computed(() => (event.time || '').slice(0, 5))
+
+const priceLabel = computed(() => {
+  if (lowestPrice.value === null) return 'Tarif à venir'
+  if (lowestPrice.value === 0) return 'Gratuit'
+  return `À partir de ${formatCurrency(lowestPrice.value)}`
 })
 </script>
 
 <template>
-  <RouterLink :to="`/event/${event.id}`" class="group block">
-    <div
-      class="overflow-hidden border-border/50 bg-card rounded-lg hover:border-primary/50 transition-all duration-300"
+  <RouterLink :to="`/event/${event.id}`" class="group block h-full" :aria-label="`Voir l'événement ${event.name}`">
+    <article
+      class="panel flex h-full flex-col overflow-hidden border-border/60 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/55"
     >
-      <div class="aspect-video relative overflow-hidden">
-        <template v-if="event.image_url">
-          <img
-            :src="event.image_url"
-            :alt="event.name"
-            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        </template>
-        <template v-else>
-          <div
-            class="w-full h-full bg-gradient-to-br from-primary/20 to-secondary flex items-center justify-center"
-          >
-            <span class="text-primary/50 text-3xl">📅</span>
-          </div>
-        </template>
+      <div class="relative aspect-video overflow-hidden">
+        <img
+          v-if="event.image_url"
+          :src="event.image_url"
+          :alt="event.name"
+          class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+        <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-cyan-400/20">
+          <FontAwesomeIcon :icon="faCalendarDays" class="h-12 w-12 text-primary/60" aria-hidden="true" />
+        </div>
 
-        <div
-          v-if="lowestPrice !== null"
-          class="absolute top-3 right-3 bg-primary text-primary-foreground font-semibold px-3 py-1 rounded"
-        >
-          {{ lowestPrice === 0 ? 'Free' : `à partir de €${lowestPrice.toFixed(2)}` }}
+        <div class="absolute right-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground">
+          {{ priceLabel }}
         </div>
 
         <div
           v-if="!hasAvailability && ticketTypes && ticketTypes.length > 0"
-          class="absolute top-3 left-3 bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs"
+          class="absolute left-3 top-3 rounded-full border border-red-300/80 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700"
         >
           Épuisé
         </div>
       </div>
 
-      <div class="p-5">
-        <h3
-          class="font-display text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors line-clamp-2"
-        >
+      <div class="flex flex-1 flex-col p-5">
+        <h3 class="line-clamp-2 font-display text-xl font-semibold text-foreground transition-colors group-hover:text-primary">
           {{ event.name }}
         </h3>
-        <div class="space-y-2 text-sm text-muted-foreground">
+
+        <div class="mt-4 space-y-2 text-sm text-muted-foreground">
           <div class="flex items-center gap-2">
-            <span class="text-primary">📅</span>
-            <span>{{ formattedDate }}</span>
+            <FontAwesomeIcon :icon="faCalendarDays" class="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span class="capitalize">{{ formattedDate }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-primary">⏰</span>
-            <span>{{ (event.time || '').slice(0, 5) }}</span>
+            <FontAwesomeIcon :icon="faClock" class="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span>{{ formattedTime || 'Horaire communiqué prochainement' }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-primary">📍</span>
-            <span class="line-clamp-1">{{ event.location }}</span>
+            <FontAwesomeIcon :icon="faLocationDot" class="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span class="line-clamp-1">{{ event.location || 'Lieu à confirmer' }}</span>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   </RouterLink>
 </template>
-
-<style scoped>
-.text-muted-foreground {
-  color: var(--muted-foreground);
-}
-
-.text-primary {
-  color: hsl(var(--primary));
-}
-</style>
