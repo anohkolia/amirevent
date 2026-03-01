@@ -17,7 +17,7 @@
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">✉️</span>
                 <input id="login-email" type="email" v-model="email" placeholder="admin@example.com"
-                  class="pl-10 bg-input border-border text-foreground w-full rounded" required />
+                  class="pl-10 py-2 bg-input border-border text-foreground w-full rounded" required />
               </div>
             </div>
 
@@ -26,7 +26,7 @@
               <div class="relative">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">🔒</span>
                 <input id="login-password" type="password" v-model="password" placeholder="••••••••"
-                  class="pl-10 bg-input border-border text-foreground w-full rounded" required />
+                  class="pl-10 py-2 bg-input border-border text-foreground w-full rounded" required />
               </div>
             </div>
 
