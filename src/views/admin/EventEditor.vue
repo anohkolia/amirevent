@@ -4,27 +4,25 @@
       <div class="container flex h-16 items-center justify-between">
         <router-link to="/admin/events" class="text-muted-foreground inline-flex items-center">
           <span class="mr-2">←</span>
-          <span>Back to Events</span>
+          <span>Retour aux Événements</span>
         </router-link>
         <button
           @click="handleSave"
           :disabled="isSaving"
           class="py-2 px-3 rounded bg-primary text-primary-foreground"
         >
-          <span v-if="isSaving" class="inline-flex items-center"
-            ><span
-              class="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full"
-            ></span
-            >Saving...</span
-          >
-          <span v-else>Save Event</span>
+          <span v-if="isSaving" class="inline-flex items-center">
+            <span class="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full"/>
+            Enregistrement en cours...
+          </span>
+          <span v-else>Enregistrer l'événement</span>
         </button>
       </div>
     </header>
 
     <div class="container py-8 max-w-3xl">
       <h1 class="font-display text-3xl font-bold text-foreground mb-8">
-        {{ isNew ? 'Create Event' : 'Edit Event' }}
+        {{ isNew ? 'Créer un Événement' : 'Modifier un Événement' }}
       </h1>
 
       <div v-if="isCheckingAdmin" class="min-h-[200px] flex items-center justify-center">
@@ -36,10 +34,10 @@
       <div v-else class="space-y-6">
         <!-- Basic Info -->
         <div class="bg-card border-border p-4 rounded">
-          <h3 class="text-foreground text-lg font-medium mb-2">Event Details</h3>
+          <h3 class="text-foreground text-lg font-medium mb-2">Détails de l'événement</h3>
           <div class="space-y-4">
             <div>
-              <label class="text-foreground block mb-1">Event Name *</label>
+              <label class="text-foreground block mb-1">Nom de l'événement*</label>
               <input
                 v-model="formData.name"
                 placeholder="Annual Gala Night"
@@ -51,7 +49,7 @@
               <label class="text-foreground block mb-1">Description</label>
               <textarea
                 v-model="formData.description"
-                placeholder="Event description..."
+                placeholder="Description de l'événement..."
                 class="w-full bg-input border-border text-foreground rounded p-2 min-h-[100px]"
               ></textarea>
             </div>
@@ -66,7 +64,7 @@
                 />
               </div>
               <div>
-                <label class="text-foreground block mb-1">Time *</label>
+                <label class="text-foreground block mb-1">Heure *</label>
                 <input
                   type="time"
                   v-model="formData.time"
@@ -76,10 +74,10 @@
             </div>
 
             <div>
-              <label class="text-foreground block mb-1">Location *</label>
+              <label class="text-foreground block mb-1">Adresse de l'événement *</label>
               <input
                 v-model="formData.location"
-                placeholder="Event venue address"
+                placeholder="Lieu de l'événement"
                 class="w-full bg-input border-border text-foreground rounded p-2"
               />
             </div>
@@ -125,8 +123,8 @@
 
             <div class="flex items-center justify-between pt-4">
               <div>
-                <label class="text-foreground block">Publish Event</label>
-                <p class="text-sm text-muted-foreground">Make this event visible to the public</p>
+                <label class="text-foreground block">Publier un événement</label>
+                <p class="text-sm text-muted-foreground">Rendre cet événement visible au public</p>
               </div>
               <input type="checkbox" v-model="formData.is_published" />
             </div>
@@ -136,8 +134,8 @@
         <!-- Ticket Types -->
         <div class="bg-card border-border p-4 rounded">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-foreground text-lg font-medium">Ticket Types</h3>
-            <button @click="addTicketType" class="py-1 px-3 rounded border">＋ Add Type</button>
+            <h3 class="text-foreground text-lg font-medium">Types de billets</h3>
+            <button @click="addTicketType" class="py-1 px-3 rounded border">＋ Ajouter un type</button>
           </div>
 
           <div class="space-y-4">
@@ -147,7 +145,7 @@
               class="grid grid-cols-[1fr_100px_100px_40px] gap-3 items-end"
             >
               <div>
-                <label class="text-sm text-foreground block mb-1">Name</label>
+                <label class="text-sm text-foreground block mb-1">Nom</label>
                 <input
                   v-model="ticket.name"
                   placeholder="Standard"
@@ -155,7 +153,7 @@
                 />
               </div>
               <div>
-                <label class="text-sm text-foreground block mb-1">Price (€)</label>
+                <label class="text-sm text-foreground block mb-1">Prix (€)</label>
                 <input
                   type="number"
                   min="0"
@@ -165,7 +163,7 @@
                 />
               </div>
               <div>
-                <label class="text-sm text-foreground block mb-1">Capacity</label>
+                <label class="text-sm text-foreground block mb-1">Nombre de billets</label>
                 <input
                   type="number"
                   min="1"
@@ -294,13 +292,13 @@ const fetchEventAndTickets = async () => {
   } catch (err: unknown) {
     console.error(err)
     const msg = err instanceof Error ? err.message : String(err)
-    toast.error(msg || 'Failed to load event')
+    toast.error(msg || 'Échec du chargement de l\'événement')
   }
 }
 
 const handleSave = async () => {
   if (!formData.name || !formData.date || !formData.time || !formData.location) {
-    toast.error('Please fill in all required fields')
+    toast.error('Veuillez remplir tous les champs requis')
     return
   }
   isSaving.value = true
@@ -341,12 +339,12 @@ const handleSave = async () => {
       }
     }
 
-    // invalidate admin events list by refetching where used, here we just navigate back
-    toast.success(isNew ? 'Event created!' : 'Event updated!')
+    // Invalider la liste des événements administratifs en la récupérant à nouveau là où elle est utilisée. Ici, nous revenons simplement en arrière.
+    toast.success(isNew ? 'Événement créé !' : 'Événement mis à jour !')
     router.push('/admin/events')
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    toast.error(msg || 'Failed to save event')
+    toast.error(msg || 'Échec de la sauvegarde de l\'événement')
   } finally {
     isSaving.value = false
   }

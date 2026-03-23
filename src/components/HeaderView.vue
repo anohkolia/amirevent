@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faTicket, faCartShopping, faUser } from '@fortawesome/free-solid-svg-icons'
+import { faTicket, faCartShopping } from '@fortawesome/free-solid-svg-icons'
 
 const cartStore = useCartStore()
 const totalItems = computed(() => cartStore.getTotalItems())
@@ -11,35 +11,34 @@ const totalItems = computed(() => cartStore.getTotalItems())
 
 <template>
   <header
-    class="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+    class="sticky top-0 z-50 w-full border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70"
   >
-    <div class="container flex h-16 items-center justify-between">
-      <RouterLink to="/" class="flex items-center gap-2">
-        <div class="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-          <FontAwesomeIcon :icon="faTicket" class="h-5 w-5 text-primary-foreground" />
+    <div class="app-container flex h-[4.5rem] items-center justify-between py-3">
+      <RouterLink to="/" class="group inline-flex items-center gap-3" aria-label="Retour à l'accueil">
+        <div
+          class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-[0_0_24px_hsl(142_71%_58%_/_0.4)] transition-transform group-hover:scale-105"
+        >
+          <FontAwesomeIcon :icon="faTicket" class="h-5 w-5 text-primary-foreground" aria-hidden="true" />
         </div>
-        <span class="font-display text-xl font-bold text-foreground"> EventTix </span>
+        <div>
+          <span class="font-display text-xl font-bold tracking-tight text-foreground">AMIRevent</span>
+          <p class="hidden text-xs text-muted-foreground sm:block">Billetterie événementielle moderne</p>
+        </div>
       </RouterLink>
 
-      <nav class="flex items-center gap-4">
-        <RouterLink to="/admin/login">
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-foreground px-3 py-2 rounded-md text-sm font-medium inline-flex items-center transition-colors"
-          >
-            <FontAwesomeIcon :icon="faUser" class="h-4 w-4 mr-2" />
-            Admin
-          </button>
-        </RouterLink>
+      <nav class="flex items-center gap-2 sm:gap-3" aria-label="Navigation principale">
+        <RouterLink to="/" class="btn btn-ghost hidden text-sm sm:inline-flex">Événements</RouterLink>
         <RouterLink
           to="/cart"
-          class="relative inline-flex items-center px-3 py-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors"
+          class="btn btn-secondary relative px-3 text-sm"
+          :aria-label="`Panier: ${totalItems} article${totalItems > 1 ? 's' : ''}`"
         >
-          <FontAwesomeIcon :icon="faCartShopping" class="h-4 w-4 mr-2" />
-          Cart
+          <FontAwesomeIcon :icon="faCartShopping" class="h-4 w-4" aria-hidden="true" />
+          Panier
           <span
             v-if="totalItems > 0"
-            class="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary text-primary-foreground text-xs rounded-full"
+            class="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground"
+            aria-live="polite"
           >
             {{ totalItems }}
           </span>
